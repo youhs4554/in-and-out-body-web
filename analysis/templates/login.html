@@ -1,0 +1,35 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login</h2>
+
+        <form method="post">
+            {% csrf_token %}
+            <div>
+                <label for="username">ID</label>
+                <input type="text" name="username" id="username" required />
+            </div>
+            <div>
+                <label for="password">비밀번호</label>
+                <input type="password" name="password" id="password" required />
+            </div>
+            <button type="submit">Login</button>
+        </form>
+
+        {% if form.errors %}
+        <p style="color: red; text-align: center">
+            Your username and password didn't match. Please try again.
+        </p>
+        {% endif %}
+    </div>
+</body>
+</html>

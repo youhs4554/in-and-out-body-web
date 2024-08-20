@@ -1,0 +1,382 @@
+/* analysis/static/styles.css */
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Ensure body takes full height */
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Allows content to grow and fill available space */
+    overflow: hidden; /* Prevent overflow */
+}
+
+.content {
+    margin-left: 270px; /* Margin to account for the fixed sidebar */
+    padding: 30px 0px 0 40px;
+    width: calc(100% - 270px); /* Width calculation to ensure it fits next to the sidebar */
+    box-sizing: border-box; /* Include padding and border in the element's total width */
+    min-height: 100vh; /* Ensure content area takes full viewport height */
+    background-color: #f9f9f9; /* Optional: add background color for better contrast */
+    align-items: center;
+}
+
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px; /* Adjust as necessary */
+    background-color: #007bff; /* Button background color */
+    color: white; /* Button text color */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.upload-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: #e9e9e9;
+    border-radius: 5px;
+}
+
+.drag-drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.3s, background-color 0.3s;
+}
+.drag-drop-area.active {
+    border-color: #007bff; /* Change border color when active */
+    background-color: #f0f8ff; /* Change background color when active */
+}
+
+.drag-drop-area p {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column; /* Arrange children vertically */
+    width: 300px; /* Increased width for better layout */
+    background-color: #f4f4f4;
+    padding: 30px; /* Increased padding */
+    height: 100vh; /* Full viewport height */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    position: fixed;
+    overflow-y: auto; /* Add scroll if content overflows */
+    box-sizing: border-box; /* Ensure padding is included in width */
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center; /* Center items vertically */
+    margin-bottom: 30px; /* Space below header */
+}
+
+.sidebar-header .app-icon {
+    font-size: 40px; /* Increase icon size */
+    color: #007bff; /* Icon color */
+    margin-right: 15px; /* Space between icon and text */
+}
+
+.sidebar-header h2 {
+    font-size: 24px; /* Increase font size for heading */
+    margin: 0; /* Remove margin for better alignment */
+    color: #333; /* Text color */
+}
+
+.sidebar ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    flex: 1; /* Allow ul to take available space */
+}
+
+.sidebar ul li {
+    margin-bottom: 15px; /* Space between items */
+}
+
+.sidebar ul li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: normal; /* Default font weight */
+    font-size: 18px; /* Font size for links */
+    display: flex; /* Use flexbox for icon and text alignment */
+    align-items: center; /* Align items vertically */
+    padding: 10px 15px; /* Padding for clickable area */
+    border-radius: 10px; /* Rounded corners */
+    transition: background-color 0.3s, color 0.3s, transform 0.3s, font-weight 0.3s; /* Smooth transitions */
+}
+
+.sidebar ul li a .menu-icon {
+    font-size: 24px; /* Icon size */
+    color: #1D192B; /* Icon color */
+    margin-right: 10px; /* Space between icon and text */
+}
+
+.sidebar ul li a:hover {
+    color: #1D192B; /* Change text color on hover */
+    background-color: #E8DEF8; /* Background color on hover */
+    transform: scale(1.05); /* Slightly increase font size on hover */
+    font-weight: bold; /* Make font weight bold on hover */
+}
+
+
+.logout-button {
+    display: block;
+    width: 100%; /* Full width button */
+    padding: 15px; /* Padding for button */
+    background-color: #e74c3c;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 18px; /* Font size for button */
+    margin-top: auto; /* Push button to the bottom */
+    border: none; /* Remove border */
+    cursor: pointer; /* Pointer cursor on hover */
+    transition: background-color 0.3s; /* Smooth transition */
+}
+
+.logout-button:hover {
+    background-color: #c0392b; /* Darker shade on hover */
+}
+
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh; /* Full viewport height */
+    background-color: #f9f9f9;
+}
+
+.login-container h2 {
+    margin-bottom: 20px;
+    text-align: center; /* Center-align heading */
+}
+
+.login-container form {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px; /* Restrict width for larger screens */
+    box-sizing: border-box;
+}
+
+.login-container form div {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.login-container form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.login-container form input,
+.login-container form button {
+    width: 100%; /* Ensure both input and button take full width of form */
+    padding: 10px; /* Consistent padding for both inputs and button */
+    border: 1px solid #ccc; /* Border for inputs; remove for button */
+    border-radius: 4px;
+    box-sizing: border-box; /* Ensures padding and border are included in width */
+}
+
+.login-container form input {
+    border: 1px solid #ccc; /* Border for input fields */
+}
+
+.login-container form button {
+    border: none; /* Remove border for button */
+    background-color: #007bff;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.login-container form button:hover {
+    background-color: #0056b3;
+}
+
+.login-container p {
+    margin-top: 20px;
+    font-size: 14px;
+    text-align: center; /* Center-align paragraph text */
+}
+
+
+form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+form select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.table-container {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    flex: 1; /* Allow the container to grow */
+    overflow: hidden; /* Prevent overflow */
+    display: flex;
+    flex-direction: column;
+}
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-y: auto; /* Allow table to scroll vertically */
+    max-height: calc(100vh - 200px); /* Adjust to fit within viewport, including margins */
+    display: block; /* Makes the table scrollable */
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    box-sizing: border-box; /* Ensure padding is included in cell size */
+}
+
+th {
+    background-color: #f4f4f4;
+}
+
+.custom-file-upload {
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+}
+
+a.btn-link {
+    display: inline-block;
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+}
+
+a.btn-link button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px; /* Adjust as necessary */
+    background-color: #007bff; /* Button background color */
+    color: white; /* Button text color */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+a.btn-link button i {
+    margin-right: 5px; /* Space between icon and text */
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.pagination-button {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+.pagination-button:hover {
+    background-color: #0056b3;
+}
+
+.info-section {
+    display: none; /* Hidden by default */
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.info-section div {
+    display: flex;
+    align-items: center;
+}
+
+.info-section .icon {
+    margin-right: 20px;
+}
+
+.info-section .file-name {
+    font-size: 18px;
+}
+
+.info-section .message {
+    font-size: 18px;
+}
+
+.confirm-button {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    animation: pulse 1.5s infinite; /* Add pulse animation */
+}
+
+.confirm-button:hover {
+    background-color: #218838;
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        background-color: #28a745; /* Original color */
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    }
+    50% {
+        transform: scale(1.1);
+        background-color: #34c759; /* Lighter green for effect */
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+    100% {
+        transform: scale(1);
+        background-color: #28a745; /* Return to original color */
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    }
+}

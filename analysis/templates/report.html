@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Report{% endblock %}
+
+{% block content %}
+<h2>검사결과를 확인해주세요</h2>
+<form method="post">
+    {% csrf_token %}
+    <label for="grade">그룹 선택</label>
+    <select name="grade" id="grade">
+        <option value="">-- 그룹 선택 --</option>
+        {% for grade in grades %}
+            <option value="{{ grade }}" {% if grade == selected_grade %}selected{% endif %}>{{ grade }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="button">조회</button>
+</form>
+
+{% if users %}
+    <h3>Analysis Data for Grade: {{ selected_grade }}</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>School</th>
+                    <th>Class</th>
+                    <th>Number</th>
+                    <th>Name</th>
+                    <th>Phone Number</th>
+                    <th>Speed</th>
+                    <th>Stride Length</th>
+                    <th>Cadence</th>
+                    <th>Turtle Neck</th>
+                    <th>Shoulder Tilt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.school }}</td>
+                    <td>{{ user.class_name }}</td>
+                    <td>{{ user.student_number }}</td>
+                    <td>{{ user.name }}</td>
+                    <td>{{ user.phone_number }}</td>
+                    <td>{{ user.gaitanalysis.speed|default:"N/A" }}</td>
+                    <td>{{ user.gaitanalysis.stride_length|default:"N/A" }}</td>
+                    <td>{{ user.gaitanalysis.cadence|default:"N/A" }}</td>
+                    <td>{{ user.bodytypeanalysis.turtle_neck|default:"N/A" }}</td>
+                    <td>{{ user.bodytypeanalysis.shoulder_tilt|default:"N/A" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p>No data available for the selected grade.</p>
+{% endif %}
+{% endblock %}
