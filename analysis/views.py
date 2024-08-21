@@ -7,8 +7,15 @@ from django.core.files.storage import default_storage
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.db import IntegrityError
-from .models import UserInfo, GaitAnalysis, BodyTypeAnalysis
+from django.contrib.auth.models import Group
+from rest_framework import permissions, viewsets
+from django.contrib.auth.hashers import make_password
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+
+from .models import UserInfo, GaitAnalysis, PoseAnalysis
 from .forms import UploadFileForm
+from .serializers import GroupSerializer, UserSerializer, GaitAnalysisSerializer, PoseAnalysisSerializer
 
 def home(request):
     if request.user.is_authenticated:
@@ -34,33 +41,18 @@ def upload_file(request):
                 try:
                     # Find or create the UserInfo
                     user_info, created = UserInfo.objects.update_or_create(
-                        school=row['school'],
-                        class_name=row['class'],
-                        student_number=row['number'],
-                        name=row['name'],
-                        phone_number=row['phone_number'],
+                        username=row['username'].replace(' ', ''),
+                        phone=row['phone'],
+                        defaults=dict(
+                            school=row['school'],
+                            class_name=row['class'],
+                            student_number=row['number'],
+                            password=make_password(os.environ['DEFAULT_PASSWORD'])
+                        ),
                     )
 
                     users.append(user_info)
 
-                    # Create or update GaitAnalysis
-                    gait_analysis, _ = GaitAnalysis.objects.update_or_create(
-                        user=user_info,
-                        defaults={
-                            'speed': row.get('speed', 0),
-                            'stride_length': row.get('stride_length', 0),
-                            'cadence': row.get('cadence', 0)
-                        }
-                    )
-
-                    # Create or update BodyTypeAnalysis
-                    body_type_analysis, _ = BodyTypeAnalysis.objects.update_or_create(
-                        user=user_info,
-                        defaults={
-                            'turtle_neck': row.get('turtle_neck', 'N/A'),
-                            'shoulder_tilt': row.get('shoulder_tilt', 'N/A')
-                        }
-                    )
                 except IntegrityError:
                     # Handle potential duplicate entry errors gracefully
                     pass
@@ -90,3 +82,53 @@ def report(request):
 
 def policy(request):
     return render(request, 'policy.html')
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows users to be viewed or edited.
+    """
+    queryset = UserInfo.objects.all().order_by('-date_joined')
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class GroupViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows groups to be viewed or edited.
+    """
+    queryset = Group.objects.all().order_by('name')
+    serializer_class = GroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class GaitAnalysisViewSet(viewsets.ModelViewSet):
+    queryset = GaitAnalysis.objects.all().order_by('-created_at')
+    serializer_class = GaitAnalysisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        user = self.request.user
+
+        try:
+            # Ensure the user has a corresponding UserInfo instance
+            user_info = UserInfo.objects.get(username=user.username)
+        except UserInfo.DoesNotExist:
+            return Response({"detail": "UserInfo does not exist for the current user."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Save the GaitAnalysis instance with the associated UserInfo
+        serializer.save(user=user_info)
+
+    def get_queryset(self):
+        # Filter the queryset to show only entries for the current user
+        return GaitAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+    
+class PoseAnalysisViewSet(viewsets.ModelViewSet):
+    queryset = PoseAnalysis.objects.all().order_by('-created_at')
+    serializer_class = PoseAnalysisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Filter the queryset to show only entries for the current user
+        return PoseAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')

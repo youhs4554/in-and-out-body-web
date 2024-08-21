@@ -26,12 +26,7 @@
                     <th>Class</th>
                     <th>Number</th>
                     <th>Name</th>
-                    <th>Phone Number</th>
-                    <th>Speed</th>
-                    <th>Stride Length</th>
-                    <th>Cadence</th>
-                    <th>Turtle Neck</th>
-                    <th>Shoulder Tilt</th>
+                    <th>Phone</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,13 +35,8 @@
                     <td>{{ user.school }}</td>
                     <td>{{ user.class_name }}</td>
                     <td>{{ user.student_number }}</td>
-                    <td>{{ user.name }}</td>
-                    <td>{{ user.phone_number }}</td>
-                    <td>{{ user.gaitanalysis.speed|default:"N/A" }}</td>
-                    <td>{{ user.gaitanalysis.stride_length|default:"N/A" }}</td>
-                    <td>{{ user.gaitanalysis.cadence|default:"N/A" }}</td>
-                    <td>{{ user.bodytypeanalysis.turtle_neck|default:"N/A" }}</td>
-                    <td>{{ user.bodytypeanalysis.shoulder_tilt|default:"N/A" }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.phone }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

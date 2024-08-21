@@ -2,3 +2,5 @@ django
 pandas
 openpyxl
 fontawesomefree
+python-dotenv
+djangorestframework

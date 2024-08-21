@@ -1,30 +1,31 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
-class UserInfo(models.Model):
-    school = models.CharField(max_length=100)
-    class_name = models.CharField(max_length=100)
-    student_number = models.IntegerField()
-    name = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=15)
+class UserInfo(AbstractUser):
+    school = models.CharField(max_length=30)
+    class_name = models.CharField(max_length=30)
+    student_number = models.IntegerField(null=True)
+    phone = models.CharField(unique = True, null = False, blank = False, max_length=15)
 
-    def __str__(self):
-        return f"{self.name} ({self.school} - {self.class_name} - {self.student_number}) - {self.phone_number}"
-
+    class Meta:
+        # Ensures the combination of name, phone is unique
+        unique_together = ('username', 'phone')
 
 class GaitAnalysis(models.Model):
-    user = models.OneToOneField(UserInfo, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
     speed = models.FloatField()
     stride_length = models.FloatField()
     cadence = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Gait Analysis for {self.user.name}"
+        return f"GaitAnalysis for {self.user.username} at {self.created_at}"
 
-
-class BodyTypeAnalysis(models.Model):
-    user = models.OneToOneField(UserInfo, on_delete=models.CASCADE)
-    turtle_neck = models.CharField(max_length=100)
-    shoulder_tilt = models.CharField(max_length=100)
+class PoseAnalysis(models.Model):
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
+    turtle_neck = models.FloatField()
+    shoulder_tilt = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Body Type Analysis for {self.user.name}"
+        return f"PoseAnalysis for {self.user.username} at {self.created_at}"

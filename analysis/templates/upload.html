@@ -57,11 +57,6 @@
                     <th>Number</th>
                     <th>Name</th>
                     <th>Phone Number</th>
-                    <th>Speed</th>
-                    <th>Stride Length</th>
-                    <th>Cadence</th>
-                    <th>Turtle Neck</th>
-                    <th>Shoulder Tilt</th>
                 </tr>
             </thead>
             <tbody>
@@ -159,13 +154,8 @@
                         <td>${row['school'] || 'N/A'}</td>
                         <td>${row['class'] || 'N/A'}</td>
                         <td>${row['number'] || 'N/A'}</td>
-                        <td>${row['name'] || 'N/A'}</td>
-                        <td>${row['phone_number'] || 'N/A'}</td>
-                        <td>${row['speed'] || 'N/A'}</td>
-                        <td>${row['stride_length'] || 'N/A'}</td>
-                        <td>${row['cadence'] || 'N/A'}</td>
-                        <td>${row['turtle_neck'] || 'N/A'}</td>
-                        <td>${row['shoulder_tilt'] || 'N/A'}</td>
+                        <td>${row['username'] || 'N/A'}</td>
+                        <td>${row['phone'] || 'N/A'}</td>
                     `;
                     dataTableBody.appendChild(tr);
                 }
