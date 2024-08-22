@@ -13,9 +13,13 @@ from django.contrib.auth.hashers import make_password
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 
-from .models import UserInfo, GaitAnalysis, PoseAnalysis
 from .forms import UploadFileForm
-from .serializers import GroupSerializer, UserSerializer, GaitAnalysisSerializer, PoseAnalysisSerializer
+from .models import UserInfo, BodyResult, GaitResult
+from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
+
+
+# from .models import UserInfo, GaitAnalysis, PoseAnalysis
+# from .serializers import GroupSerializer, UserSerializer, GaitAnalysisSerializer, PoseAnalysisSerializer
 
 def home(request):
     if request.user.is_authenticated:
@@ -42,11 +46,11 @@ def upload_file(request):
                     # Find or create the UserInfo
                     user_info, created = UserInfo.objects.update_or_create(
                         username=row['username'].replace(' ', ''),
-                        phone=row['phone'],
+                        phone_number=row['phone'],
                         defaults=dict(
                             school=row['school'],
-                            class_name=row['class'],
-                            student_number=row['number'],
+                            class_name=row['student_class'],
+                            student_number=row['student_number'],
                             password=make_password(os.environ['DEFAULT_PASSWORD'])
                         ),
                     )
@@ -71,10 +75,10 @@ def upload_file(request):
 
 @login_required
 def report(request):
-    grades = UserInfo.objects.values_list('class_name', flat=True).distinct()
+    grades = UserInfo.objects.values_list('student_class', flat=True).distinct()
     if request.method == 'POST':
         selected_grade = request.POST.get('grade')
-        users = UserInfo.objects.filter(class_name=selected_grade)
+        users = UserInfo.objects.filter(student_class=selected_grade)
     else:
         users = UserInfo.objects.none()
         selected_grade = None
@@ -84,12 +88,12 @@ def policy(request):
     return render(request, 'policy.html')
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserInfoViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows users to be viewed or edited.
     """
     queryset = UserInfo.objects.all().order_by('-date_joined')
-    serializer_class = UserSerializer
+    serializer_class = UserInfoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 
@@ -102,9 +106,9 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-class GaitAnalysisViewSet(viewsets.ModelViewSet):
-    queryset = GaitAnalysis.objects.all().order_by('-created_at')
-    serializer_class = GaitAnalysisSerializer
+class GaitResultViewSet(viewsets.ModelViewSet):
+    queryset = GaitResult.objects.all().order_by('-created_dt')
+    serializer_class = GaitResultSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -122,13 +126,13 @@ class GaitAnalysisViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Filter the queryset to show only entries for the current user
-        return GaitAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+        return GaitResult.objects.filter(user__username=self.request.user.username).order_by('-created_dt')
     
-class PoseAnalysisViewSet(viewsets.ModelViewSet):
-    queryset = PoseAnalysis.objects.all().order_by('-created_at')
-    serializer_class = PoseAnalysisSerializer
+class BodyResultViewSet(viewsets.ModelViewSet):
+    queryset = BodyResult.objects.all().order_by('-created_dt')
+    serializer_class = BodyResultSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # Filter the queryset to show only entries for the current user
-        return PoseAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+        return BodyResult.objects.filter(user__username=self.request.user.username).order_by('-created_dt')
