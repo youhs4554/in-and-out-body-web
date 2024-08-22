@@ -12,9 +12,10 @@ from rest_framework import permissions, viewsets
 from django.contrib.auth.hashers import make_password
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
+from django.contrib.auth.views import PasswordChangeView
 
 from .models import UserInfo, GaitAnalysis, PoseAnalysis
-from .forms import UploadFileForm
+from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import GroupSerializer, UserSerializer, GaitAnalysisSerializer, PoseAnalysisSerializer
 
 def home(request):
@@ -132,3 +133,8 @@ class PoseAnalysisViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Filter the queryset to show only entries for the current user
         return PoseAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+    
+class CustomPasswordChangeView(PasswordChangeView):
+    form_class = CustomPasswordChangeForm
+    template_name = 'password_change.html'
+    success_url = '/password-change-done/'
