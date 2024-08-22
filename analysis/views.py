@@ -46,7 +46,7 @@ def upload_file(request):
                     # Find or create the UserInfo
                     user_info, created = UserInfo.objects.update_or_create(
                         username=row['username'].replace(' ', ''),
-                        phone=row['phone'],
+                        phone_number=row['phone'],
                         defaults=dict(
                             school=row['school'],
                             class_name=row['student_class'],
@@ -77,7 +77,7 @@ def upload_file(request):
 def report(request):
     grades = UserInfo.objects.values_list('student_class', flat=True).distinct()
     if request.method == 'POST':
-        selected_grade = request.POST.get('student_grade')
+        selected_grade = request.POST.get('grade')
         users = UserInfo.objects.filter(student_class=selected_grade)
     else:
         users = UserInfo.objects.none()

@@ -15,8 +15,8 @@ class SchoolInfo(models.Model):
 
 class UserInfo(AbstractUser):
     user_type = models.CharField(max_length=1)
-    phone_number = models.IntegerField()
-    school_id = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
+    phone_number = models.CharField(max_length=100)
+    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
@@ -29,8 +29,8 @@ class UserInfo(AbstractUser):
         ]
 
 class UserHist(models.Model):
-    user_id = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
-    school_id = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
+    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
@@ -39,8 +39,8 @@ class UserHist(models.Model):
 
 
 class GaitResult(models.Model):
-    user_id = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
-    school_id = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
+    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
@@ -68,8 +68,8 @@ class GaitResult(models.Model):
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class BodyResult(models.Model):
-    user_id = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
-    school_id = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
+    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
