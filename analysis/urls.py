@@ -1,14 +1,16 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from .views import home, upload_file, report, policy, UserViewSet, GroupViewSet, GaitAnalysisViewSet, PoseAnalysisViewSet, CustomPasswordChangeView
+# from .views import home, upload_file, report, policy, UserViewSet, GroupViewSet, GaitAnalysisViewSet, PoseAnalysisViewSet
+from .views import home, upload_file, report, policy, GroupViewSet, UserInfoViewSet, GaitResultViewSet, \
+    BodyResultViewSet, CustomPasswordChangeView
 
 from rest_framework import routers
 
 router = routers.DefaultRouter()
-router.register(r'users', UserViewSet)
+router.register(r'users', UserInfoViewSet)
 router.register(r'groups', GroupViewSet)
-router.register(r'gaits', GaitAnalysisViewSet)
-router.register(r'poses', PoseAnalysisViewSet)
+router.register(r'gaits', GaitResultViewSet)
+router.register(r'bodies', BodyResultViewSet)
 
 urlpatterns = [
     path('', home, name='home'),

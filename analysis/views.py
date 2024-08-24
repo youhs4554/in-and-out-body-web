@@ -1,11 +1,10 @@
 # analysis/views.py
 
 import os
+import re
 import pandas as pd
 from django.shortcuts import render, redirect
-from django.core.files.storage import default_storage
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 from django.db import IntegrityError
 from django.contrib.auth.models import Group
 from rest_framework import permissions, viewsets
@@ -14,9 +13,9 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
-from .models import UserInfo, GaitAnalysis, PoseAnalysis
+from .models import BodyResult, GaitResult, SchoolInfo, UserInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
-from .serializers import GroupSerializer, UserSerializer, GaitAnalysisSerializer, PoseAnalysisSerializer
+from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
 
 def home(request):
     if request.user.is_authenticated:
@@ -32,34 +31,31 @@ def upload_file(request):
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             excel_file = request.FILES['file']
-            file_path = default_storage.save('temp.xlsx', excel_file)
-            full_path = os.path.join(settings.MEDIA_ROOT, 'temp.xlsx')
-
             # Read the Excel file
-            df = pd.read_excel(full_path)
+            df = pd.read_excel(excel_file)
             
             for _, row in df.iterrows():
-                try:
-                    # Find or create the UserInfo
-                    user_info, created = UserInfo.objects.update_or_create(
-                        username=row['username'].replace(' ', ''),
-                        phone=row['phone'],
-                        defaults=dict(
-                            school=row['school'],
-                            class_name=row['class'],
-                            student_number=row['number'],
-                            password=make_password(os.environ['DEFAULT_PASSWORD'])
-                        ),
-                    )
+                    
+                school_info, created = SchoolInfo.objects.update_or_create(
+                    school_name=row['학교'],
+                )
+                
+                # Find or create the UserInfo
+                user_info, created = UserInfo.objects.update_or_create(
+                    username=row['전화번호'],
+                    defaults=dict(
+                        school=school_info,
+                        student_grade=row['학년'],
+                        student_class=row['반'],
+                        student_number=row['번호'],
+                        student_name=row['이름'].replace(' ', ''),
+                        phone_number=row['전화번호'],
+                        password=make_password(os.environ['DEFAULT_PASSWORD'])
+                    ),
+                )
 
-                    users.append(user_info)
+                users.append(user_info)
 
-                except IntegrityError:
-                    # Handle potential duplicate entry errors gracefully
-                    pass
-
-            # Cleanup
-            default_storage.delete(file_path)
 
             return render(request, 'upload.html', {
                 'form': form,
@@ -72,25 +68,31 @@ def upload_file(request):
 
 @login_required
 def report(request):
-    grades = UserInfo.objects.values_list('class_name', flat=True).distinct()
+    groups = UserInfo.objects.values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
+    groups = [ f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None)) ] # Note : 학년, 반 정보 없는 superuser는 그룹에 포함안됨
+    print(groups)
     if request.method == 'POST':
-        selected_grade = request.POST.get('grade')
-        users = UserInfo.objects.filter(class_name=selected_grade)
+        selected_group = request.POST.get('group')
+
+        # 정규 표현식을 사용하여 학년과 반 추출
+        match = re.search(r"(\d+)학년 (\d+)반", selected_group)
+        users = UserInfo.objects.filter(student_grade=match.group(1), 
+                                        student_class=match.group(2))
     else:
         users = UserInfo.objects.none()
-        selected_grade = None
-    return render(request, 'report.html', {'grades': grades, 'users': users, 'selected_grade': selected_grade})
+        selected_group = None
+    return render(request, 'report.html', {'groups': groups, 'users': users, 'selected_group': selected_group})
 
 def policy(request):
     return render(request, 'policy.html')
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserInfoViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows users to be viewed or edited.
     """
-    queryset = UserInfo.objects.all().order_by('-date_joined')
-    serializer_class = UserSerializer
+    queryset = UserInfo.objects.all().order_by('-created_dt')
+    serializer_class = UserInfoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 
@@ -103,9 +105,9 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-class GaitAnalysisViewSet(viewsets.ModelViewSet):
-    queryset = GaitAnalysis.objects.all().order_by('-created_at')
-    serializer_class = GaitAnalysisSerializer
+class GaitResultViewSet(viewsets.ModelViewSet):
+    queryset = GaitResult.objects.all().order_by('-created_dt')
+    serializer_class = GaitResultSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -113,7 +115,7 @@ class GaitAnalysisViewSet(viewsets.ModelViewSet):
 
         try:
             # Ensure the user has a corresponding UserInfo instance
-            user_info = UserInfo.objects.get(username=user.username)
+            user_info = UserInfo.objects.get(phone_number=user.phone_number)
         except UserInfo.DoesNotExist:
             return Response({"detail": "UserInfo does not exist for the current user."},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -123,16 +125,16 @@ class GaitAnalysisViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Filter the queryset to show only entries for the current user
-        return GaitAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+        return GaitResult.objects.filter(user__phone_number=self.request.user.phone_number).order_by('-created_dt')
     
-class PoseAnalysisViewSet(viewsets.ModelViewSet):
-    queryset = PoseAnalysis.objects.all().order_by('-created_at')
-    serializer_class = PoseAnalysisSerializer
+class BodyResultViewSet(viewsets.ModelViewSet):
+    queryset = BodyResult.objects.all().order_by('-created_dt')
+    serializer_class = BodyResultSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # Filter the queryset to show only entries for the current user
-        return PoseAnalysis.objects.filter(user__username=self.request.user.username).order_by('-created_at')
+        return BodyResult.objects.filter(user__phone_number=self.request.user.phone_number).order_by('-created_dt')
     
 class CustomPasswordChangeView(PasswordChangeView):
     form_class = CustomPasswordChangeForm

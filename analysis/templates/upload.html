@@ -52,11 +52,12 @@
         <table id="dataTable">
             <thead>
                 <tr>
-                    <th>School</th>
-                    <th>Class</th>
-                    <th>Number</th>
-                    <th>Name</th>
-                    <th>Phone Number</th>
+                    <th>학교</th>
+                    <th>학년</th>
+                    <th>반</th>
+                    <th>번호</th>
+                    <th>이름</th>
+                    <th>전화번호</th>
                 </tr>
             </thead>
             <tbody>
@@ -151,11 +152,12 @@
                     const row = jsonData[i];
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${row['school'] || 'N/A'}</td>
-                        <td>${row['class'] || 'N/A'}</td>
-                        <td>${row['number'] || 'N/A'}</td>
-                        <td>${row['username'] || 'N/A'}</td>
-                        <td>${row['phone'] || 'N/A'}</td>
+                        <td>${row['학교'] || 'N/A'}</td>
+                        <td>${row['학년'] || 'N/A'}</td>
+                        <td>${row['반'] || 'N/A'}</td>
+                        <td>${row['번호'] || 'N/A'}</td>
+                        <td>${row['이름'] || 'N/A'}</td>
+                        <td>${row['전화번호'] || 'N/A'}</td>
                     `;
                     dataTableBody.appendChild(tr);
                 }
