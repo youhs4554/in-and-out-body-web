@@ -13,6 +13,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
+from .auth_helper import monitor_inbox
+
 from .models import BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
@@ -150,10 +152,36 @@ class CustomPasswordChangeView(PasswordChangeView):
     success_url = '/password-change-done/'
 
 
+# Update this with your email credentials and allowed domains
+EMAIL_HOST = 'imap.naver.com'
+EMAIL_USER = 'youhs4554@naver.com'
+EMAIL_PASS = 'Dbwltkd1emd!'
 
-# 인증키 요청하기
 @api_view(['GET'])
-def request_auth_key(request, code):
+def request_auth_key(request, code, req_type="", kiosk_id=""):
+
+    # Fetch the latest authentication code from the email inbox
+    is_authorized, phone_number = monitor_inbox(EMAIL_HOST, EMAIL_USER, EMAIL_PASS, requested_code=code, check_interval=5)
+    
+    # Check if the provided code matches the latest authentication code
+    if not is_authorized:
+        return Response(
+            {
+                'message': 'invalid_code'
+            })
+    
+    user_info = UserInfo.objects.get(phone_number=phone_number)
+    
+    # Create a new SessionInfo object authorization success.
+    sess_info = SessionInfo.objects.create(
+        req_type=req_type,  # Example request type, adjust as needed
+        session_key=code,
+        user_id=user_info.id,
+        kiosk_id=kiosk_id,
+        is_issued=False
+    )
+    
+    # Proceed if the code is valid
     sess_infos = SessionInfo.objects.filter(session_key=code, is_issued=False)
     if len(sess_infos) == 0:
         return Response(
@@ -167,27 +195,7 @@ def request_auth_key(request, code):
     token = TokenObtainPairSerializer.get_token(user)
     refresh_token = str(token)
     access_token = str(token.access_token)
-    # response = Response(
-    #     [{
-    #         'user': {
-    #           'user_id': user.id,
-    #             'user_name': user.username,
-    #             'phone_number': user.phone_number,
-    #             'student_name': user.student_name,
-    #             'year': user.year,
-    #             'school_id': user.school_id,
-    #             'school_name': user.school.school_name,
-    #             'student_grade': user.student_grade,
-    #             'student_class': user.student_class,
-    #             'student_number': user.student_number,
-    #         },
-    #         'message': 'success',
-    #         'jwt_token': {
-    #             'access_token': access_token,
-    #             'refresh_token': refresh_token,
-    #         }
-    #     }]
-    # )
+    
     response = Response(
         {
             'data':{
@@ -208,9 +216,9 @@ def request_auth_key(request, code):
         }
     )
 
+    # TODO: 전화번호 없으면 새로운 유저 등록
+
     sess_info.is_issued = True
     sess_info.save()
 
     return response
-
-
