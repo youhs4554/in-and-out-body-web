@@ -13,9 +13,17 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
-from .models import BodyResult, GaitResult, SchoolInfo, UserInfo
+from .models import BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
 
 def home(request):
     if request.user.is_authenticated:
@@ -140,3 +148,69 @@ class CustomPasswordChangeView(PasswordChangeView):
     form_class = CustomPasswordChangeForm
     template_name = 'password_change.html'
     success_url = '/password-change-done/'
+
+
+
+# 인증키 요청하기
+@api_view(['GET'])
+def request_auth_key(request, code):
+    sess_infos = SessionInfo.objects.filter(session_key=code, is_issued=False)
+    if len(sess_infos) == 0:
+        return Response(
+            {
+                'message': 'nodata'
+            })
+
+    sess_info = sess_infos[0]
+    user_id = sess_info.user_id
+    user = UserInfo.objects.get(id=user_id)
+    token = TokenObtainPairSerializer.get_token(user)
+    refresh_token = str(token)
+    access_token = str(token.access_token)
+    # response = Response(
+    #     [{
+    #         'user': {
+    #           'user_id': user.id,
+    #             'user_name': user.username,
+    #             'phone_number': user.phone_number,
+    #             'student_name': user.student_name,
+    #             'year': user.year,
+    #             'school_id': user.school_id,
+    #             'school_name': user.school.school_name,
+    #             'student_grade': user.student_grade,
+    #             'student_class': user.student_class,
+    #             'student_number': user.student_number,
+    #         },
+    #         'message': 'success',
+    #         'jwt_token': {
+    #             'access_token': access_token,
+    #             'refresh_token': refresh_token,
+    #         }
+    #     }]
+    # )
+    response = Response(
+        {
+            'data':{
+                'user_id': user.id,
+                'user_name': user.username,
+                'phone_number': user.phone_number,
+                'student_name': user.student_name,
+                'year': user.year,
+                'school_id': user.school_id,
+                'school_name': user.school.school_name,
+                'student_grade': user.student_grade,
+                'student_class': user.student_class,
+                'student_number': user.student_number,
+                'message': 'success',
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+            }
+        }
+    )
+
+    sess_info.is_issued = True
+    sess_info.save()
+
+    return response
+
+

@@ -3,6 +3,9 @@ from rest_framework import serializers
 
 from analysis.models import UserInfo, UserHist, SessionInfo, SchoolInfo, GaitResult, BodyResult
 
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
 
 class SessionInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,3 +47,5 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Group
         fields = ['url', 'name']
+
+

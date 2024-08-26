@@ -1,3 +1,5 @@
+from email.policy import default
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -5,7 +7,8 @@ class SessionInfo(models.Model):
     req_type = models.CharField(max_length=1)
     session_key = models.CharField(max_length=100)
     user_id = models.BigIntegerField(null=True)
-    kiosk_id = models.CharField(max_length=100, null=True)
+    kiosk_id = models.CharField(max_length=100, null=True, blank=True)
+    is_issued = models.BooleanField(default=False)
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class SchoolInfo(models.Model):
@@ -17,7 +20,7 @@ class SchoolInfo(models.Model):
         return self.school_name
 
 class UserInfo(AbstractUser):
-    user_type = models.CharField(max_length=1)
+    user_type = models.CharField(max_length=1, default='S', null=False, blank=False)
     phone_number = models.CharField(max_length=100)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
     student_grade = models.IntegerField(null=True, blank=True)
