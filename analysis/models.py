@@ -34,7 +34,10 @@ class UserInfo(AbstractUser):
         ]
 
     def __str__(self):
-        return f"{self.school.school_name}|{self.student_grade}학년-{self.student_class}반-{self.student_number}-{self.student_name}"
+        if self.school is not None:
+            return f"[{self.school.school_name}] {self.student_grade}학년-{self.student_class}반-{self.student_number}-{self.student_name}"
+        else:
+            return self.username
 
 class UserHist(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
