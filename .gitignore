@@ -175,3 +175,4 @@ cython_debug/
 
 test_samples/*
 *migrations/
+.idea/
