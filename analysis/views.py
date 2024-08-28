@@ -152,7 +152,8 @@ class GaitResultViewSet(viewsets.ViewSet):
             201: openapi.Response(description='Created', schema=GaitResultSerializer),
             400: 'Bad Request',
             404: 'Not Found',
-        }
+        },
+        tags=['gait_analysis']
     )
     @action(detail=False, methods=['post'])
     def create_result(self, request):
@@ -193,7 +194,7 @@ class GaitResultViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         operation_description="Retrieve gait analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key", type=openapi.TYPE_STRING),
+            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
         ],
         responses={
             200: GaitResultSerializer(many=True),
@@ -203,16 +204,11 @@ class GaitResultViewSet(viewsets.ViewSet):
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
-        session_key = request.query_params.get('session_key')
-        if not session_key:
-            return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            session_info = SessionInfo.objects.get(session_key=session_key)
-        except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        gait_results = GaitResult.objects.filter(user_id=session_info.user_id)
+        gait_results = GaitResult.objects.filter(user_id=user_id)
         if not gait_results.exists():
             return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
                 
@@ -294,7 +290,7 @@ class BodyResultViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         operation_description="Retrieve body analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key", type=openapi.TYPE_STRING),
+            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
         ],
         responses={
             200: BodyResultSerializer(many=True),
@@ -304,22 +300,17 @@ class BodyResultViewSet(viewsets.ViewSet):
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
-        session_key = request.query_params.get('session_key')
-        if not session_key:
-            return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            session_info = SessionInfo.objects.get(session_key=session_key)
-        except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        body_results = BodyResult.objects.filter(user_id=session_info.user_id)
+        body_results = BodyResult.objects.filter(user_id=user_id)
         if not body_results.exists():
             return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
                 
         # Serialize the BodyResult objects
         serializer = BodyResultSerializer(body_results, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
     
 class CustomPasswordChangeView(PasswordChangeView):
     form_class = CustomPasswordChangeForm
