@@ -31,8 +31,8 @@ schema_view = get_schema_view(
 
 router = routers.DefaultRouter()
 router.register(r'users', UserInfoViewSet)
-router.register(r'gait', GaitResultViewSet)
-router.register(r'body', BodyResultViewSet)
+router.register(r'analysis/gait', GaitResultViewSet)
+router.register(r'analysis/body', BodyResultViewSet)
 
 urlpatterns = [
     path('', home, name='home'),

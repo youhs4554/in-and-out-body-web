@@ -153,7 +153,7 @@ class GaitResultViewSet(viewsets.ViewSet):
             400: 'Bad Request',
             404: 'Not Found',
         },
-        tags=['gait_analysis']
+        tags=['gait-analysis']
     )
     @action(detail=False, methods=['post'])
     def create_result(self, request):
@@ -187,9 +187,9 @@ class GaitResultViewSet(viewsets.ViewSet):
         
         if serializer.is_valid():
             serializer.save()
-            return Response({'message': 'created_gait_result'}, status=status.HTTP_201_CREATED)
+            return { 'data': Response({'message': 'created_gait_result'}, status=status.HTTP_201_CREATED)}
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return { 'data' : Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)}
 
     @swagger_auto_schema(
         operation_description="Retrieve gait analysis results by session key",
@@ -201,6 +201,7 @@ class GaitResultViewSet(viewsets.ViewSet):
             400: 'Bad Request',
             404: 'Not Found',
         },
+        tags=['gait-analysis']
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
@@ -214,7 +215,8 @@ class GaitResultViewSet(viewsets.ViewSet):
                 
         # Serialize the GaitResult objects
         serializer = GaitResultSerializer(gait_results, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
         
 class BodyResultViewSet(viewsets.ViewSet):
     queryset = BodyResult.objects.all().order_by('-created_dt')
@@ -250,6 +252,7 @@ class BodyResultViewSet(viewsets.ViewSet):
             400: 'Bad Request',
             404: 'Not Found',
         },
+        tags=['body-analysis']
     )
     @action(detail=False, methods=['post'])
     def create_result(self, request):
@@ -285,7 +288,7 @@ class BodyResultViewSet(viewsets.ViewSet):
             serializer.save()
             return Response({'message': 'created_body_result'}, status=status.HTTP_201_CREATED)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'data' : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(
         operation_description="Retrieve body analysis results by session key",
@@ -297,6 +300,7 @@ class BodyResultViewSet(viewsets.ViewSet):
             400: 'Bad Request',
             404: 'Not Found',
         },
+        tags=['body-analysis']
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
@@ -328,20 +332,23 @@ class CustomPasswordChangeView(PasswordChangeView):
         required=['mobile_uid'],
     ),
     responses={
-        200: openapi.Response('Success', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
-                'jwt_tokens': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'access_token': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
-                        'refresh_token': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
-                    }
-                ),
-                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
-            }
-        )),
+        200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT, 
+                                                        properties={
+                                                            'data': 
+                              openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
+                                    'jwt_tokens': openapi.Schema(
+                                        type=openapi.TYPE_OBJECT,
+                                        properties={
+                                            'access_token': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                                            'refresh_token': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                                        }
+                                    ),
+                                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
+                                }
+                            )})),
         400: openapi.Response('Bad Request'),
         404: openapi.Response('User not found'),
     }
@@ -358,7 +365,7 @@ def auth_mobile(request):
         return Response(
             {
                 'message': 'user_not_found'
-            })
+            }, status=status.HTTP_404_NOT_FOUND)
                 
     authorized_user_info, user_created = UserInfo.objects.update_or_create(
                                     phone_number=auth_info.phone_number,
@@ -388,7 +395,7 @@ def auth_mobile(request):
 
     auth_info.delete()
     
-    return Response({k: v for k, v in data_obj.items() if v is not None})
+    return Response({'data' : {k: v for k, v in data_obj.items() if v is not None}})
 
 @swagger_auto_schema(
     method='post',
@@ -403,10 +410,13 @@ def auth_mobile(request):
     responses={
         200: openapi.Response('Success', openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            properties={
-                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Generated session key'),
-            }
-        )),
+            properties={'data': 
+                        openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Generated session key'),
+                            }
+        )})  ),
         400: openapi.Response('Bad Request'),
     }
 )
@@ -423,7 +433,7 @@ def login_kiosk(request):
         kiosk_id=kiosk_id,
     )
 
-    return Response({'session_key': session_key})
+    return Response({'data' : {'session_key': session_key}})
 
 @swagger_auto_schema(
     method='post',
@@ -437,13 +447,16 @@ def login_kiosk(request):
         required=['session_key', 'user_id'],
     ),
     responses={
-        200: openapi.Response('Login Success', openapi.Schema(
+        200: openapi.Response('Login Success', 
+                              openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+                                  'data': 
+                               openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                 'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
                 'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
             }
-        )),
+        )})),
         400: openapi.Response('Bad Request'),
         404: openapi.Response('Session key not found'),
     }
@@ -469,7 +482,7 @@ def login_mobile_qr(request):
     session_info.user_id = user_id
     session_info.save()
 
-    return Response({'session_key': session_key, 'message': 'login_success'})
+    return Response({'data': {'session_key': session_key, 'message': 'login_success'}})
 
 @swagger_auto_schema(
     method='post',
@@ -484,13 +497,16 @@ def login_mobile_qr(request):
         required=['session_key', 'phone_number', 'password'],
     ),
     responses={
-        200: openapi.Response('Login Success', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
-                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
-            }
-        )),
+        200: openapi.Response('Login Success', 
+                              openapi.Schema(type=openapi.TYPE_OBJECT, 
+                                            properties={
+                                                        'data' : openapi.Schema(
+                                                                    type=openapi.TYPE_OBJECT,
+                                                                    properties={
+                                                                        'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
+                                                                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
+                                                                    }
+                                                                )}),),
         400: openapi.Response('Bad Request'),
         404: openapi.Response('Session or user not found'),
         401: openapi.Response('Unauthorized - Incorrect password'),
@@ -523,9 +539,9 @@ def login_kiosk_id(request):
                         status=status.HTTP_404_NOT_FOUND)
         
     if check_password(password, user_info.password) and (phone_number == user_info.phone_number):
-        return Response({'session_key': session_key, 'message': 'login_success'})
+        return Response({'data' : {'session_key': session_key, 'message': 'login_success'}})
     else:
-        return Response({'session_key': session_key, 'message': 'incorrect_password'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'data': {'session_key': session_key, 'message': 'incorrect_password'}}, status=status.HTTP_401_UNAUTHORIZED)
 
 @swagger_auto_schema(
     method='get',
@@ -537,16 +553,19 @@ def login_kiosk_id(request):
         200: openapi.Response('Success', openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
-            }
-        )),
+                'data': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
+                            }
+                        )})),
         400: openapi.Response('Bad Request'),
         404: openapi.Response('Session or user not found'),
     }
 )
 @api_view(['GET'])
 def get_userinfo_session(request):
-    session_key = request.data.get('session_key')
+    session_key = request.query_params.get('session_key')
     if not session_key:
         return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
     try:
@@ -563,7 +582,7 @@ def get_userinfo_session(request):
         return Response({"message": "user_not_found"},
                         status=status.HTTP_404_NOT_FOUND)
     
-    return Response({k: v for k, v in parse_userinfo(user_info).items() if v is not None})
+    return Response({'data' : {k: v for k, v in parse_userinfo(user_info).items() if v is not None}})
 
 @swagger_auto_schema(
     method='post',
