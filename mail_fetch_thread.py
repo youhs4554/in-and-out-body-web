@@ -18,7 +18,7 @@ import time
 
 from analysis.models import AuthInfo
 
-def fetch_recent_mails(email_host, email_user, email_password, minutes=1, allowed_domains=["vmms.nate.com", "ktfmms.magicn.com", "lguplus.com"]):
+def fetch_recent_mails(email_host, email_user, email_password, minutes=1):
     # Connect to the email server
     mail = imaplib.IMAP4_SSL(email_host)
     mail.login(email_user, email_password)
@@ -56,13 +56,13 @@ def fetch_recent_mails(email_host, email_user, email_password, minutes=1, allowe
 
                 sender = msg['From'].replace('<', '').replace('>', '').replace('"', '')
                 sender_domain = sender.split('@')[-1].strip()
+                sender = sender.replace('@' + sender_domain, '')
 
                 # Check if the sender's domain is in the allowed list
-                if sender_domain in allowed_domains:
-                    # Extract the subject of the email
-                    mobile_uid = str(msg['Subject'])
-                    phone_number = str(sender.split(' ')[0])
-                    fetched_data.append([mobile_uid, phone_number])
+                # Extract the subject of the email
+                mobile_uid = str(msg['Subject'])
+                phone_number = str(sender.split(' ')[0])
+                fetched_data.append([mobile_uid, phone_number])
 
     # Cleanup
     mail.logout()

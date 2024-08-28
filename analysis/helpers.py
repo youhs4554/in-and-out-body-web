@@ -22,6 +22,7 @@ def parse_userinfo(userinfo_obj):
         'student_class': userinfo_obj.student_class if userinfo_obj.student_class else None,
         'student_number': userinfo_obj.student_number if userinfo_obj.student_number else None,
         'student_name': userinfo_obj.student_name if userinfo_obj.student_name else None,
+        'phone_number': userinfo_obj.phone_number if userinfo_obj.phone_number else None,
     }
 
 

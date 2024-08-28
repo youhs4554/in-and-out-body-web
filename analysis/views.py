@@ -13,10 +13,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
+
 from .helpers import parse_userinfo
-
-
-
 from .models import AuthInfo, BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
@@ -384,13 +382,33 @@ def auth_mobile(request):
     refresh_token = str(token)
     access_token = str(token.access_token)
 
+    # response = Response(
+        # {
+        #     'data':{
+        #         'user_id': user.id,
+        #         'user_name': user.username,
+        #         'phone_number': user.phone_number,
+        #         'student_name': user.student_name,
+        #         'year': user.year,
+        #         'school_id': user.school_id,
+        #         'school_name': user.school.school_name,
+        #         'student_grade': user.student_grade,
+        #         'student_class': user.student_class,
+        #         'student_number': user.student_number,
+        #         'message': 'success',
+        #         'access_token': access_token,
+        #         'refresh_token': refresh_token,
+    # });
+
     data_obj = {
-        'user_info': parse_userinfo(authorized_user_info),
-        'jwt_tokens':{
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-        },
-        'message': 'success',
+        'data': {
+            'user_info': parse_userinfo(authorized_user_info),
+            'jwt_tokens':{
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+            },
+            'message': 'success',
+        }
     }
 
     auth_info.delete()
