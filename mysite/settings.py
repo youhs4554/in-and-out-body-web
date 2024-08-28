@@ -10,7 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 from datetime import timedelta
+import os
 from pathlib import Path
+
+import dotenv
+dotenv.load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,13 +45,19 @@ INSTALLED_APPS = [
     'fontawesomefree',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_yasg',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+EMAIL_HOST = os.environ['EMAIL_HOST']
+EMAIL_USER = os.environ['EMAIL_USER']
+EMAIL_PASSWORD = os.environ['EMAIL_PASSWORD']
 
 # 추가적인 JWT_AUTH 설정
 SIMPLE_JWT = {
@@ -120,21 +131,13 @@ DATABASES = {
     #     'ENGINE': 'django.db.backends.sqlite3',
     #     'NAME': BASE_DIR / 'db.sqlite3',
     # }
-    # 'default': {
-    #         'ENGINE': 'django.db.backends.postgresql',
-    #         'NAME': 'body_db',
-    #         'USER': 'webadmin',
-    #         'PASSWORD': 'aicuaicu1!',
-    #         'HOST': 'localhost',
-    #         'PORT': '5432',
-    #     }
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'body_db',
-        'USER': 'webadmin',
-        'PASSWORD': 'aicuaicu1!',
-        'HOST': 'aicu-office.iptime.org',
-        'PORT': '65001',
+        'NAME': os.environ['POSTGRES_DB_NAME'],
+        'USER': os.environ['POSTGRES_USER'],
+        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
+        'HOST': os.environ['POSTGRES_HOST'],
+        'PORT': os.environ['POSTGRES_PORT'],
     }
 }
 

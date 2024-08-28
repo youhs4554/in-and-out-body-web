@@ -3,6 +3,11 @@ from email.policy import default
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+class AuthInfo(models.Model):
+    uid = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=100)
+    created_dt = models.DateTimeField(auto_now_add=True)
+
 class SessionInfo(models.Model):
     req_type = models.CharField(max_length=1)
     session_key = models.CharField(max_length=100)
@@ -13,7 +18,7 @@ class SessionInfo(models.Model):
 
 class SchoolInfo(models.Model):
     school_name = models.CharField(max_length=100)
-    contact_number = models.IntegerField(null=True)
+    contact_number = models.CharField(max_length=100, null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
