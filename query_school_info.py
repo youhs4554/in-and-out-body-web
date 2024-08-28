@@ -2,10 +2,11 @@
 import requests
 import pandas as pd
 import json
+import os
 
 url = "https://open.neis.go.kr/hub/schoolInfo"
 
-service_key = "c4cceeee91444a1682a21c4b4ab1990a"
+service_key = os.environ['SCHOOL_API_KEY']
 
 query = '대구외국어고등학교'
 
