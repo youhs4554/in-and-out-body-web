@@ -41,3 +41,18 @@ jobs:
       - name: Run Tests
         run: |
           python manage.py test
+
+      - name: Deploy to Server via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT }}
+        script: |
+          cd ~/project/in-and-out-body-web
+          git pull origin feature
+          conda activate django
+          pip install -r requirements.txt
+          python manage.py migrate
+          sh ./restart_django.sh
