@@ -1,6 +1,6 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from .views import home, upload_file, report, policy, UserInfoViewSet, GaitResultViewSet, \
+from .views import home, register_student, report, policy, UserInfoViewSet, GaitResultViewSet, \
     BodyResultViewSet, CustomPasswordChangeView
 
 from rest_framework import routers
@@ -36,8 +36,8 @@ router.register(r'analysis/body', BodyResultViewSet)
 
 urlpatterns = [
     path('', home, name='home'),
-    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='upload_file'), name='login'),
-    path('upload/', upload_file, name='upload_file'),
+    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register_student'), name='login'),
+    path('register-student/', register_student, name='register_student'),
     path('report/', report, name='report'),
     path('policy/', policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),

@@ -29,12 +29,12 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('upload_file')
+        return redirect('register_student')
     else:
         return redirect('login')
 
 @login_required
-def upload_file(request):
+def register_student(request):
     users = []  # Initialize an empty list to hold user data
 
     if request.method == 'POST':
@@ -67,14 +67,14 @@ def upload_file(request):
                 users.append(user_info)
 
 
-            return render(request, 'upload.html', {
+            return render(request, 'register_student.html', {
                 'form': form,
                 'users': users
             })
     else:
         form = UploadFileForm()
     
-    return render(request, 'upload.html', {'form': form})
+    return render(request, 'register_student.html', {'form': form})
 
 @login_required
 def report(request):
