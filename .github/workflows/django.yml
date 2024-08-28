@@ -54,6 +54,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ~/project/in-and-out-body-web
+            source ~/.zshrc
             git pull origin feature
             conda activate django
             pip install -r requirements.txt
