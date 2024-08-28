@@ -59,4 +59,4 @@ jobs:
             conda activate django
             pip install -r requirements.txt
             python manage.py migrate
-            sh ./restart_django.sh &
+            sh ./restart_django.sh
