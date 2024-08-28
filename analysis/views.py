@@ -382,24 +382,6 @@ def auth_mobile(request):
     refresh_token = str(token)
     access_token = str(token.access_token)
 
-    # response = Response(
-        # {
-        #     'data':{
-        #         'user_id': user.id,
-        #         'user_name': user.username,
-        #         'phone_number': user.phone_number,
-        #         'student_name': user.student_name,
-        #         'year': user.year,
-        #         'school_id': user.school_id,
-        #         'school_name': user.school.school_name,
-        #         'student_grade': user.student_grade,
-        #         'student_class': user.student_class,
-        #         'student_number': user.student_number,
-        #         'message': 'success',
-        #         'access_token': access_token,
-        #         'refresh_token': refresh_token,
-    # });
-
     data_obj = {
         'data': {
             'user_info': parse_userinfo(authorized_user_info),
