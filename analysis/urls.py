@@ -33,7 +33,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    path('api/request-auth-key/<int:code>/', views.request_auth_key, name="request_auth_key"),
-
+    path('api/request-auth-key/<str:code>/', views.request_auth_key, name='request_auth_key'),
+    path('api/request-auth-key/<str:code>/<str:req_type>/', views.request_auth_key, name='request_auth_key_req_type'),
+    path('api/request-auth-key/<str:code>/<str:req_type>/<str:kiosk_id>/', views.request_auth_key, name='request_auth_key_req_type_kiosk_id'),
 
 ]
