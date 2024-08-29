@@ -105,7 +105,7 @@ class GaitResultTests(TestCase):
         self.session_key = kiosk_response.data['data']['session_key']
 
         # Login mobile using QR code
-        kiosk_response = self.client.post('/api/login-mobile-qr/', {'session_key': self.session_key, 'user_id': self.user_info.id}, format='json')
+        kiosk_response = self.client.post('/api/login-mobile-qr/', {'session_key': self.session_key}, format='json')
         self.assertEqual(kiosk_response.status_code, status.HTTP_200_OK)
         self.session_key = kiosk_response.data['data']['session_key']
 
@@ -181,7 +181,7 @@ class BodyResultTests(TestCase):
         self.session_key = kiosk_response.data['data']['session_key']
 
         # Login mobile using QR code
-        kiosk_response = self.client.post('/api/login-mobile-qr/', {'session_key': self.session_key, 'user_id': self.user_info.id}, format='json')
+        kiosk_response = self.client.post('/api/login-mobile-qr/', {'session_key': self.session_key}, format='json')
         self.assertEqual(kiosk_response.status_code, status.HTTP_200_OK)
         self.session_key = kiosk_response.data['data']['session_key']
 

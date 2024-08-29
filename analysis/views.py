@@ -431,9 +431,8 @@ def login_kiosk(request):
         type=openapi.TYPE_OBJECT,
         properties={
             'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key from QR code'),
-            'user_id': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
         },
-        required=['session_key', 'user_id'],
+        required=['session_key'],
     ),
     responses={
         200: openapi.Response('Login Success', 
@@ -454,10 +453,6 @@ def login_mobile_qr(request):
     if not session_key:
         return Response({'message': 'session_key_required'})
     
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'message': 'user_id_required'})
-
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
@@ -466,7 +461,7 @@ def login_mobile_qr(request):
                 'message': 'session_key_not_found'
             })
 
-    session_info.user_id = user_id
+    session_info.user_id = request.user.id
     session_info.save()
 
     return Response({'data': {'session_key': session_key, 'message': 'login_success'}})
