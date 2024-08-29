@@ -1,10 +1,19 @@
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse, resolve
 from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .views import home, register_student, report, policy, auth_mobile, login_kiosk, login_mobile_qr, login_kiosk_id, get_userinfo_session, end_session, CustomPasswordChangeView
-from rest_framework.routers import DefaultRouter
+from rest_framework.test import APIClient
+from rest_framework import status
+from django.contrib.auth.hashers import make_password
+from .models import AuthInfo, UserInfo
+
+base_url = 'http://localhost:8000/'
+mobile_uid = 'qwer'
+phone_number = '01012345678'
+password = '1234'
+kiosk_id = 'jifjaeijfieajfi'
 
 class UrlsTestCase(SimpleTestCase):
     
@@ -72,69 +81,26 @@ class UrlsTestCase(SimpleTestCase):
         url = reverse('end_session')
         self.assertEqual(resolve(url).func, end_session)
 
-
-from django.test import TestCase
-from rest_framework.test import APIClient
-from rest_framework import status
-from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import make_password
-from .models import AuthInfo, SessionInfo, UserInfo, BodyResult, GaitResult
-from rest_framework_simplejwt.tokens import RefreshToken
-import uuid
-
-base_url = 'http://localhost:8000/'
-
-class MobileAuthTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.mobile_uid = 'qwer'
-        self.phone_number = '01053614549'
-        self.password = '1234'
-        self.auth_info = AuthInfo.objects.create(uid=self.mobile_uid, phone_number=self.phone_number)
-        self.user_info = UserInfo.objects.create(
-            username=self.phone_number,
-            phone_number=self.phone_number,
-            password=make_password(self.password)
-        )
-
-    def test_auth_mobile_success(self):
-        response = self.client.post(base_url + 'api/auth-mobile/', {'mobile_uid': self.mobile_uid}, format='json')
-        response_data = response.data['data']['data']
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('jwt_tokens', response_data)
-        self.assertIn('access_token', response_data['jwt_tokens'])
-
-from django.test import TestCase
-from rest_framework.test import APIClient
-from rest_framework import status
-from django.contrib.auth.hashers import make_password
-from .models import AuthInfo, SessionInfo, UserInfo
-
 class GaitResultTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.mobile_uid = 'qwer'
-        self.phone_number = '01053614549'
-        self.password = '1234'
-        self.kiosk_id = 'test_kiosk_id'
 
         # Create the required objects
-        self.auth_info = AuthInfo.objects.create(uid=self.mobile_uid, phone_number=self.phone_number)
+        self.auth_info = AuthInfo.objects.create(uid=mobile_uid, phone_number=phone_number)
         self.user_info = UserInfo.objects.create(
-            username=self.phone_number,
-            phone_number=self.phone_number,
-            password=make_password(self.password)
+            username=phone_number,
+            phone_number=phone_number,
+            password=make_password(password)
         )
 
         # Authenticate and get access token
-        auth_response = self.client.post('/api/auth-mobile/', {'mobile_uid': self.mobile_uid}, format='json')
+        auth_response = self.client.post('/api/auth-mobile/', {'mobile_uid': mobile_uid}, format='json')
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         access_token = auth_response.data['data']['data']['jwt_tokens']['access_token']
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + access_token)
 
         # Login to kiosk and get session key
-        kiosk_response = self.client.post('/api/login-kiosk/', {'kiosk_id': self.kiosk_id}, format='json')
+        kiosk_response = self.client.post('/api/login-kiosk/', {'kiosk_id': kiosk_id}, format='json')
         self.assertEqual(kiosk_response.status_code, status.HTTP_200_OK)
         self.session_key = kiosk_response.data['data']['session_key']
 
@@ -194,27 +160,23 @@ class GaitResultTests(TestCase):
 class BodyResultTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.mobile_uid = 'qwer'
-        self.phone_number = '01053614549'
-        self.password = '1234'
-        self.kiosk_id = 'test_kiosk_id'
 
         # Create the required objects
-        self.auth_info = AuthInfo.objects.create(uid=self.mobile_uid, phone_number=self.phone_number)
+        self.auth_info = AuthInfo.objects.create(uid=mobile_uid, phone_number=phone_number)
         self.user_info = UserInfo.objects.create(
-            username=self.phone_number,
-            phone_number=self.phone_number,
-            password=make_password(self.password)
+            username=phone_number,
+            phone_number=phone_number,
+            password=make_password(password)
         )
 
         # Authenticate and get access token
-        auth_response = self.client.post('/api/auth-mobile/', {'mobile_uid': self.mobile_uid}, format='json')
+        auth_response = self.client.post('/api/auth-mobile/', {'mobile_uid': mobile_uid}, format='json')
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         access_token = auth_response.data['data']['data']['jwt_tokens']['access_token']
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + access_token)
 
         # Login to kiosk and get session key
-        kiosk_response = self.client.post('/api/login-kiosk/', {'kiosk_id': self.kiosk_id}, format='json')
+        kiosk_response = self.client.post('/api/login-kiosk/', {'kiosk_id': kiosk_id}, format='json')
         self.assertEqual(kiosk_response.status_code, status.HTTP_200_OK)
         self.session_key = kiosk_response.data['data']['session_key']
 
