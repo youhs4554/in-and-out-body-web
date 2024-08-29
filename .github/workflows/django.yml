@@ -43,7 +43,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python manage.py test
+          python manage.py test --reverse
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v0.1.7
