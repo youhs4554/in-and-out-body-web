@@ -192,7 +192,8 @@ class GaitResultViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         operation_description="Retrieve gait analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
+            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER),
         ],
         responses={
             200: GaitResultSerializer(many=True),
@@ -294,7 +295,8 @@ class BodyResultViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         operation_description="Retrieve body analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
+            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER),
         ],
         responses={
             200: BodyResultSerializer(many=True),
