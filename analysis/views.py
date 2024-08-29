@@ -208,6 +208,9 @@ class GaitResultViewSet(viewsets.ViewSet):
             return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
         
         gait_results = GaitResult.objects.filter(user_id=user_id)
+        id = self.request.query_params.get('id', None)
+        if id is not None:
+            gait_results = gait_results.filter(id=id)
         if not gait_results.exists():
             return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
                 
@@ -307,6 +310,10 @@ class BodyResultViewSet(viewsets.ViewSet):
             return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
         
         body_results = BodyResult.objects.filter(user_id=user_id)
+        id = self.request.query_params.get('id', None)
+        if id is not None:
+            body_results = body_results.filter(id=id)
+
         if not body_results.exists():
             return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
                 
