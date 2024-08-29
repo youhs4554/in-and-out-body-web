@@ -43,6 +43,7 @@ jobs:
 
       - name: DB migration
         run: |
+          python manage.py makemigrations analysis
           python manage.py migrate
 
       - name: Run Tests
