@@ -226,7 +226,7 @@ def get_gait_result(request):
         return Response({"message": "gait_result_not_found", "status": 404})
     count = request.query_params.get('count', None)
     if count is not None:
-        gait_results = gait_results[:count]
+        gait_results = gait_results.all()[:int(count)]
             
     # Serialize the GaitResult objects
     serializer = GaitResultSerializer(gait_results, many=True)
@@ -351,7 +351,7 @@ def get_body_result(request):
         return Response({"message": "body_result_not_found", "status": 404})
     count = request.query_params.get('count', None)
     if count is not None:
-        body_results = body_results[:count]
+        body_results = body_results.all()[:int(count)]
             
     # Serialize the BodyResult objects
     serializer = BodyResultSerializer(body_results, many=True)

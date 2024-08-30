@@ -88,9 +88,6 @@ class GaitResult(models.Model):
     stridetm_cv_r = models.FloatField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"GaitResult for {self.student_name} at {self.created_dt}"
-
 class BodyResult(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
@@ -109,6 +106,3 @@ class BodyResult(models.Model):
     scoliosis_shoulder_ratio = models.FloatField(null=True)
     scoliosis_hip_ratio = models.FloatField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"BodyResult for {self.student_name} at {self.created_dt}"
