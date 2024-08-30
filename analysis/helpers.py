@@ -12,6 +12,7 @@ class TimeoutException(Exception):
 def parse_userinfo(userinfo_obj):
     return {
         'user_id': userinfo_obj.id,
+        'password': userinfo_obj.password,
         'user_type': userinfo_obj.user_type if userinfo_obj.user_type else None,
         'user_name': userinfo_obj.username,
         'created_dt': userinfo_obj.created_dt,

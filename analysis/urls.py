@@ -52,6 +52,7 @@ urlpatterns = [
 
     # for custom authentication process
     path('api/auth-mobile/', views.auth_mobile, name='auth_mobile'),
+    path('api/user-mobile/', views.user_mobile, name='user_mobile'),
     path('api/login-kiosk/', views.login_kiosk, name='login_kiosk'),
     path('api/login-mobile-qr/', views.login_mobile_qr, name='login_mobile_qr'),
     path('api/login-kiosk-id/', views.login_kiosk_id, name='login_kiosk_id'),

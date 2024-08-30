@@ -10,6 +10,7 @@ from django.contrib.auth.models import Group
 from rest_framework import permissions, viewsets
 from django.contrib.auth.hashers import make_password, check_password
 from rest_framework import viewsets, permissions, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
@@ -20,7 +21,7 @@ from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
 
 
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -203,13 +204,14 @@ class GaitResultViewSet(viewsets.ViewSet):
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+        # user_id = request.query_params.get('user_id')
+        # if not user_id:
+        #     return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.user.id;
+
         gait_results = GaitResult.objects.filter(user_id=user_id)
         if not gait_results.exists():
-            return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "gait_result_not_found"})
                 
         # Serialize the GaitResult objects
         serializer = GaitResultSerializer(gait_results, many=True)
@@ -363,7 +365,7 @@ def auth_mobile(request):
         return Response(
             {
                 'message': 'user_not_found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            })
                 
     authorized_user_info, user_created = UserInfo.objects.update_or_create(
                                     phone_number=auth_info.phone_number,
@@ -382,20 +384,67 @@ def auth_mobile(request):
     refresh_token = str(token)
     access_token = str(token.access_token)
 
+    user_info = parse_userinfo(authorized_user_info)
+
     data_obj = {
-        'data': {
-            'user_info': parse_userinfo(authorized_user_info),
-            'jwt_tokens':{
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-            },
-            'message': 'success',
-        }
+        'user_info': user_info,
+        'jwt_tokens':{
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        },
+        'message': 'success',
     }
 
     auth_info.delete()
     
     return Response({'data' : {k: v for k, v in data_obj.items() if v is not None}})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_mobile(request):
+    user = request.user
+    user_id = user.id
+
+    try:
+        user = UserInfo.objects.get(id=user_id)
+    except UserInfo.DoesNotExist:
+        return Response(
+            {
+                'message': 'user_not_found'
+            })
+
+    user_info = parse_userinfo(user)
+
+    data_obj = {
+        'user_info': user_info,
+        'message': 'success',
+    }
+
+    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}})
+
+
+# def user_mobile(request):
+#     user_id = request.data.get('user_id')
+#     if not user_id:
+#         return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
+#
+#     try:
+#         user = UserInfo.objects.get(user_id=user_id)
+#     except UserInfo.DoesNotExist:
+#         return Response(
+#             {
+#                 'message': 'user_not_found'
+#             })
+#
+#     user_info = parse_userinfo(user)
+#
+#     data_obj = {
+#         'user_info': user_info,
+#         'message': 'success',
+#     }
+#
+#     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}})
 
 @swagger_auto_schema(
     method='post',
