@@ -1,7 +1,6 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from .views import home, register_student, report, policy, UserInfoViewSet, GaitResultViewSet, \
-    BodyResultViewSet, CustomPasswordChangeView
+from .views import home, register_student, report, policy, CustomPasswordChangeView
 
 from rest_framework import routers
 
@@ -29,10 +28,10 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,), 
 )
 
-router = routers.DefaultRouter()
-router.register(r'users', UserInfoViewSet)
-router.register(r'analysis/gait', GaitResultViewSet)
-router.register(r'analysis/body', BodyResultViewSet)
+# router = routers.DefaultRouter()
+# router.register(r'users', UserInfoViewSet)
+# router.register(r'analysis/gait', GaitResultViewSet)
+# router.register(r'analysis/body', BodyResultViewSet)
 
 urlpatterns = [
     path('', home, name='home'),
@@ -41,7 +40,7 @@ urlpatterns = [
     path('report/', report, name='report'),
     path('policy/', policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
-    path('api/', include(router.urls)),
+    # path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('password-change/', CustomPasswordChangeView.as_view(), name='password_change'),
     path('password-change-done/', auth_views.PasswordChangeDoneView.as_view(template_name='password_change_done.html'), name='password_change_done'),
@@ -57,6 +56,11 @@ urlpatterns = [
     path('api/login-kiosk-id/', views.login_kiosk_id, name='login_kiosk_id'),
     path('api/get-userinfo-session/', views.get_userinfo_session, name='get_userinfo_session'),
     path('api/end-session/', views.end_session, name='end_session'),
+
+    path('api/analysis/gait/create_result/', views.create_gait_result, name='create_gait_result'),
+    path('api/analysis/gait/get_result/', views.get_gait_result, name='get_gait_result'),
+    path('api/analysis/body/create_result/', views.create_body_result, name='create_body_result'),
+    path('api/analysis/body/get_result/', views.get_body_result, name='get_body_result'),
 ]
 
 if settings.DEBUG:
