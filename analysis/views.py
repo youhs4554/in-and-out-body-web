@@ -610,7 +610,7 @@ def get_userinfo_session(request):
         return Response({"message": "user_not_found", "status": 401},
                 )
     
-    return Response({'data' : {k: v for k, v in parse_userinfo(user_info).items() if v is not None}, 'message': 'OK', 'status': 200})
+    return Response({'data' : parse_userinfo(user_info), 'message': 'OK', 'status': 200})
 
 @swagger_auto_schema(
     method='post',
