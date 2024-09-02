@@ -221,17 +221,18 @@ def get_gait_result(request):
         # for JWT authorized user
         user_id = request.user.id
 
-    start_date = request.query_params.get('start_date')
-    end_date = request.query_params.get('end_date')
+    start_date = request.query_params.get('start_date', None)
+    end_date = request.query_params.get('end_date', None)
 
-    # Ensure start_date and end_date are datetime objects
-    if not isinstance(start_date, datetime):
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-    if not isinstance(end_date, datetime):
-        end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-
-    gait_results = GaitResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
-
+    if start_date is not None or end_date is not None:
+        # Ensure start_date and end_date are datetime objects
+        if not isinstance(start_date, datetime):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if not isinstance(end_date, datetime):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        gait_results = GaitResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+    else:
+        gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
     if not gait_results.exists():
         return Response({"message": "gait_result_not_found", "status": 404})
     count = request.query_params.get('count', None)
@@ -355,16 +356,19 @@ def get_body_result(request):
     else:
         # for JWT authorized user
         user_id = request.user.id
-    start_date = request.query_params.get('start_date')
-    end_date = request.query_params.get('end_date')
+    start_date = request.query_params.get('start_date', None)
+    end_date = request.query_params.get('end_date', None)
 
-    # Ensure start_date and end_date are datetime objects
-    if not isinstance(start_date, datetime):
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-    if not isinstance(end_date, datetime):
-        end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    if start_date is not None or end_date is not None:
+        # Ensure start_date and end_date are datetime objects
+        if not isinstance(start_date, datetime):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if not isinstance(end_date, datetime):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        body_results = BodyResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+    else:
+        body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
 
-    body_results = BodyResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
 
     if not body_results.exists():
         return Response({"message": "body_result_not_found", "status": 404})
