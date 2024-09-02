@@ -561,6 +561,9 @@ def login_kiosk_id(request):
         return Response({"message": "user_not_found", 'status': 401},
                 )
 
+    session_info.user_id = user_info.id
+    session_info.save()
+
     if check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data' : {'message': 'login_success', 'status': 200}, 'message': 'login_success', 'status': 200})
     else:
