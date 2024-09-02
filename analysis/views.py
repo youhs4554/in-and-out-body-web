@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
+from datetime import datetime, timedelta
 from .helpers import parse_userinfo
 from .models import AuthInfo, BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
@@ -172,7 +172,8 @@ def create_gait_result(request):
     
     if user_info.school is None:
         data['school'] = null_school.id
-    
+    else:
+        data['school'] = user_info.school.id
     data['user'] = user_info.id
     serializer = GaitResultSerializer(data=data)
     
@@ -184,11 +185,12 @@ def create_gait_result(request):
 
 @swagger_auto_schema(
     method='get',
-    operation_description="Retrieve gait analysis results by session key",
+    operation_description="Retrieve latest gait analysis results by session key",
     manual_parameters=[
-        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for user", type=openapi.TYPE_STRING, required=True),
-        openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER, required=False),
-        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve", type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user", type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
     ],
     responses={
         200: GaitResponseSerializer,
@@ -218,10 +220,18 @@ def get_gait_result(request):
     else:
         # for JWT authorized user
         user_id = request.user.id
-    gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
-    id = request.query_params.get('id', None)
-    if id is not None:
-        gait_results = gait_results.filter(id=id)
+
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+
+    # Ensure start_date and end_date are datetime objects
+    if not isinstance(start_date, datetime):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    if not isinstance(end_date, datetime):
+        end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+
+    gait_results = GaitResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+
     if not gait_results.exists():
         return Response({"message": "gait_result_not_found", "status": 404})
     count = request.query_params.get('count', None)
@@ -296,7 +306,8 @@ def create_body_result(request):
     data = body_data.copy()
     if user_info.school is None:
         data['school'] = null_school.id
-    
+    else:
+        data['school'] = user_info.school.id 
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
     
@@ -308,11 +319,12 @@ def create_body_result(request):
 
 @swagger_auto_schema(
     method='get',
-    operation_description="Retrieve body analysis results by session key",
+    operation_description="Retrieve latest body analysis results by session key",
     manual_parameters=[
-        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for user", type=openapi.TYPE_STRING, required=True),
-        openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER, required=False),
-        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve", type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user", type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
     ],
     responses={
         200: BodyResultSerializer(many=True),
@@ -343,10 +355,17 @@ def get_body_result(request):
     else:
         # for JWT authorized user
         user_id = request.user.id
-    body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
-    id = request.query_params.get('id', None)
-    if id is not None:
-        body_results = body_results.filter(id=id)
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+
+    # Ensure start_date and end_date are datetime objects
+    if not isinstance(start_date, datetime):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    if not isinstance(end_date, datetime):
+        end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+
+    body_results = BodyResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+
     if not body_results.exists():
         return Response({"message": "body_result_not_found", "status": 404})
     count = request.query_params.get('count', None)
