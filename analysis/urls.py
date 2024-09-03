@@ -1,7 +1,7 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from .views import home, register_student, report, policy, UserInfoViewSet, GaitResultViewSet, \
-    BodyResultViewSet, CustomPasswordChangeView
+    BodyResultViewSet, CustomPasswordChangeView, CodeInfoViewSet
 
 from rest_framework import routers
 
@@ -33,6 +33,7 @@ router = routers.DefaultRouter()
 router.register(r'users', UserInfoViewSet)
 router.register(r'analysis/gait', GaitResultViewSet)
 router.register(r'analysis/body', BodyResultViewSet)
+router.register(r'analysis/code', CodeInfoViewSet)
 
 urlpatterns = [
     path('', home, name='home'),

@@ -64,7 +64,6 @@ class GaitResult(models.Model):
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
-    student_name = models.CharField(max_length=100, null=True, blank=True)
     score = models.FloatField(null=True)
     velocity = models.FloatField(null=True)
     cadence = models.FloatField(null=True)
@@ -112,3 +111,24 @@ class BodyResult(models.Model):
 
     def __str__(self):
         return f"BodyResult for {self.student_name} at {self.created_dt}"
+
+class CodeInfo(models.Model):
+    group_id = models.CharField(max_length=4)
+    code_id = models.CharField(max_length=40)
+    code_name = models.CharField(max_length=100)
+    min_value = models.FloatField(null=True)
+    max_value = models.FloatField(null=True)
+    normal_min_value = models.FloatField(null=True)
+    normal_max_value = models.FloatField(null=True)
+    caution_min_value = models.FloatField(null=True)
+    caution_max_value = models.FloatField(null=True)
+    unit_name = models.CharField(max_length=20, null=True)
+    created_dt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['group_id', 'code_id'], name='unique_codeinfo')]
+
+    def __str__(self):
+        return f"CodeInfo for {self.group_id} - {self.code_id} at {self.created_dt}"
+
+

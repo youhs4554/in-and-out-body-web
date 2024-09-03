@@ -6,20 +6,18 @@ import uuid
 import pandas as pd
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import Group
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, viewsets, status
 from django.contrib.auth.hashers import make_password, check_password
-from rest_framework import viewsets, permissions, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 
 
 from .helpers import parse_userinfo
-from .models import AuthInfo, BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo
+from .models import AuthInfo, BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo, CodeInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
-from .serializers import BodyResultSerializer, GaitResultSerializer, GroupSerializer, UserInfoSerializer
-
+from .serializers import BodyResultSerializer, GaitResultSerializer, UserInfoSerializer, CodeInfoSerializer
 
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
@@ -79,7 +77,7 @@ def register_student(request):
 def report(request):
     groups = UserInfo.objects.values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
     groups = [ f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None)) ] # Note : 학년, 반 정보 없는 superuser는 그룹에 포함안됨
-    print(groups)
+    
     if request.method == 'POST':
         selected_group = request.POST.get('group')
 
@@ -103,6 +101,25 @@ class UserInfoViewSet(viewsets.ModelViewSet):
     queryset = UserInfo.objects.all().order_by('-created_dt')
     serializer_class = UserInfoSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class CodeInfoViewSet(viewsets.ViewSet):
+    queryset = CodeInfo.objects.all().order_by('-created_dt')
+    serializer_class = CodeInfoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def get_code(self, request):
+        group_id_list = self.request.query_params.getlist('group_id_list')
+        if not group_id_list:
+            return Response({'message': 'group_id_list_required'}, status=status.HTTP_400_BAD_REQUEST)
+        results = CodeInfo.objects.filter(group_id__in=group_id_list)
+        if not results.exists():
+            return Response({"message": "code_not_found"})
+
+        # Serialize the GaitResult objects
+        serializer = CodeInfoSerializer(results, many=True)
+
+        return Response({'data': serializer.data})
 
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -148,9 +165,7 @@ class GaitResultViewSet(viewsets.ViewSet):
             required=['session_key', 'gait_data'],
         ),
         responses={
-            201: openapi.Response(description='Created', schema=GaitResultSerializer),
-            400: 'Bad Request',
-            404: 'Not Found',
+            200: openapi.Response(description='Created', schema=GaitResultSerializer),
         },
         tags=['gait-analysis']
     )
@@ -158,17 +173,17 @@ class GaitResultViewSet(viewsets.ViewSet):
     def create_result(self, request):
         session_key = request.data.get('session_key')
         if not session_key:
-            return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({'message': 'session_key_required'})
+
         try:
             session_info = SessionInfo.objects.get(session_key=session_key)
         except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'session_key_not_found'})
 
         try:
             user_info = UserInfo.objects.get(id=session_info.user_id)
         except UserInfo.DoesNotExist:
-            return Response({'message': 'user_not_found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'user_not_found'})
 
         # Retrieve or create a fixed "null school" instance
         null_school, created = SchoolInfo.objects.get_or_create(
@@ -186,37 +201,43 @@ class GaitResultViewSet(viewsets.ViewSet):
         
         if serializer.is_valid():
             serializer.save()
-            return { 'data': Response({'message': 'created_gait_result'}, status=status.HTTP_201_CREATED)}
+            return Response({'message': 'created_gait_result'})
         else:
-            return { 'data' : Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)}
+            return Response({'message' : serializer.errors})
 
     @swagger_auto_schema(
         operation_description="Retrieve gait analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
+            openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER),
         ],
         responses={
             200: GaitResultSerializer(many=True),
-            400: 'Bad Request',
-            404: 'Not Found',
         },
         tags=['gait-analysis']
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
-        # user_id = request.query_params.get('user_id')
-        # if not user_id:
-        #     return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
-        user_id = request.user.id;
+        user_id = request.user.id
+        gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
+        id = self.request.query_params.get('id', None)
+        if id is not None:
+            current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
+            if not current_result:
+                return Response({"message": "gait_result_not_found"})
 
-        gait_results = GaitResult.objects.filter(user_id=user_id)
-        if not gait_results.exists():
-            return Response({"message": "gait_result_not_found"})
+            gait_results = GaitResult.objects.filter(
+                user_id=user_id,
+                created_dt__lte=current_result.created_dt
+            ).order_by('-created_dt')[:7]
+        else:
+            if not gait_results.exists():
+                return Response({"message": "gait_result_not_found"})
                 
         # Serialize the GaitResult objects
         serializer = GaitResultSerializer(gait_results, many=True)
 
-        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+        return Response({'data': serializer.data})
+
         
 class BodyResultViewSet(viewsets.ViewSet):
     queryset = BodyResult.objects.all().order_by('-created_dt')
@@ -248,9 +269,7 @@ class BodyResultViewSet(viewsets.ViewSet):
             required=['session_key'],  # Add any required fields here
         ),
         responses={
-            201: openapi.Response('Created', BodyResultSerializer),
-            400: 'Bad Request',
-            404: 'Not Found',
+            200: openapi.Response('Created', BodyResultSerializer),
         },
         tags=['body-analysis']
     )
@@ -258,17 +277,17 @@ class BodyResultViewSet(viewsets.ViewSet):
     def create_result(self, request):
         session_key = request.data.get('session_key')
         if not session_key:
-            return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'session_key_required'})
         
         try:
             session_info = SessionInfo.objects.get(session_key=session_key)
         except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'session_key_not_found'})
 
         try:
             user_info = UserInfo.objects.get(id=session_info.user_id)
         except UserInfo.DoesNotExist:
-            return Response({'message': 'user_not_found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'user_not_found'})
 
         # Retrieve or create a fixed "null school" instance
         null_school, created = SchoolInfo.objects.get_or_create(
@@ -286,35 +305,35 @@ class BodyResultViewSet(viewsets.ViewSet):
         
         if serializer.is_valid():
             serializer.save()
-            return Response({'message': 'created_body_result'}, status=status.HTTP_201_CREATED)
+            return Response({'message': 'created_body_result'})
         else:
-            return Response({'data' : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message' : serializer.errors})
 
     @swagger_auto_schema(
         operation_description="Retrieve body analysis results by session key",
         manual_parameters=[
-            openapi.Parameter('user_id', openapi.IN_QUERY, description="User ID", type=openapi.TYPE_STRING),
+            openapi.Parameter('id', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_INTEGER),
         ],
         responses={
             200: BodyResultSerializer(many=True),
-            400: 'Bad Request',
-            404: 'Not Found',
         },
         tags=['body-analysis']
     )
     @action(detail=False, methods=['get'])
     def get_result(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        body_results = BodyResult.objects.filter(user_id=user_id)
+        user_id = request.user.id
+        body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
+        id = self.request.query_params.get('id', None)
+        if id is not None:
+            body_results = body_results.filter(id=id)
+
         if not body_results.exists():
-            return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "body_result_not_found"})
                 
         # Serialize the BodyResult objects
         serializer = BodyResultSerializer(body_results, many=True)
-        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+        return Response({'data': serializer.data})
+
     
 class CustomPasswordChangeView(PasswordChangeView):
     form_class = CustomPasswordChangeForm
@@ -349,15 +368,13 @@ class CustomPasswordChangeView(PasswordChangeView):
                                     'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
                                 }
                             )})),
-        400: openapi.Response('Bad Request'),
-        404: openapi.Response('User not found'),
     }
 )
 @api_view(['POST'])
 def auth_mobile(request):
     mobile_uid = request.data.get('mobile_uid')
     if not mobile_uid:
-        return Response({'message': 'mobile_uid_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'mobile_uid_required'})
     
     try:
         auth_info = AuthInfo.objects.get(uid=mobile_uid)
@@ -366,7 +383,6 @@ def auth_mobile(request):
             {
                 'message': 'user_not_found'
             })
-                
     authorized_user_info, user_created = UserInfo.objects.update_or_create(
                                     phone_number=auth_info.phone_number,
                                     defaults=dict(
@@ -424,28 +440,6 @@ def user_mobile(request):
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}})
 
 
-# def user_mobile(request):
-#     user_id = request.data.get('user_id')
-#     if not user_id:
-#         return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
-#
-#     try:
-#         user = UserInfo.objects.get(user_id=user_id)
-#     except UserInfo.DoesNotExist:
-#         return Response(
-#             {
-#                 'message': 'user_not_found'
-#             })
-#
-#     user_info = parse_userinfo(user)
-#
-#     data_obj = {
-#         'user_info': user_info,
-#         'message': 'success',
-#     }
-#
-#     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}})
-
 @swagger_auto_schema(
     method='post',
     operation_description="Login to the kiosk using kiosk_id, returning session key",
@@ -466,14 +460,13 @@ def user_mobile(request):
                                 'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Generated session key'),
                             }
         )})  ),
-        400: openapi.Response('Bad Request'),
     }
 )
 @api_view(['POST'])
 def login_kiosk(request):
     kiosk_id = request.data.get('kiosk_id')
     if not kiosk_id:
-        return Response({'message': 'kiosk_id_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'kiosk_id_required'})
     
     # POST 메소드를 사용하여 키오스크 로그인 요청 처리
     session_key = uuid.uuid4().hex
@@ -491,9 +484,8 @@ def login_kiosk(request):
         type=openapi.TYPE_OBJECT,
         properties={
             'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key from QR code'),
-            'user_id': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
         },
-        required=['session_key', 'user_id'],
+        required=['session_key'],
     ),
     responses={
         200: openapi.Response('Login Success', 
@@ -506,29 +498,23 @@ def login_kiosk(request):
                 'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
             }
         )})),
-        400: openapi.Response('Bad Request'),
-        404: openapi.Response('Session key not found'),
     }
 )
 @api_view(['POST'])
 def login_mobile_qr(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'session_key_required'})
     
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'message': 'user_id_required'}, status=status.HTTP_400_BAD_REQUEST)
-
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
         return Response(
             {
                 'message': 'session_key_not_found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            })
 
-    session_info.user_id = user_id
+    session_info.user_id = request.user.id
     session_info.save()
 
     return Response({'data': {'session_key': session_key, 'message': 'login_success'}})
@@ -556,22 +542,19 @@ def login_mobile_qr(request):
                                                                         'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
                                                                     }
                                                                 )}),),
-        400: openapi.Response('Bad Request'),
-        404: openapi.Response('Session or user not found'),
-        401: openapi.Response('Unauthorized - Incorrect password'),
     }
 )
 @api_view(['POST'])
 def login_kiosk_id(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'session_key_required'})
     
     phone_number = request.data.get('phone_number')
     password = request.data.get('password')
     
     if not phone_number or not password:
-        return Response({'message': 'phone_number_and_password_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'phone_number_and_password_required'})
 
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
@@ -579,18 +562,18 @@ def login_kiosk_id(request):
         return Response(
             {
                 'message': 'session_key_not_found',
-            }, status=status.HTTP_404_NOT_FOUND)
+            })
 
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
         return Response({"message": "user_not_found"},
-                        status=status.HTTP_404_NOT_FOUND)
+                )
         
     if check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data' : {'session_key': session_key, 'message': 'login_success'}})
     else:
-        return Response({'data': {'session_key': session_key, 'message': 'incorrect_password'}}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'data': {'session_key': session_key, 'message': 'incorrect_password'}})
 
 @swagger_auto_schema(
     method='get',
@@ -608,28 +591,26 @@ def login_kiosk_id(request):
                                 'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
                             }
                         )})),
-        400: openapi.Response('Bad Request'),
-        404: openapi.Response('Session or user not found'),
     }
 )
 @api_view(['GET'])
 def get_userinfo_session(request):
     session_key = request.query_params.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'session_key_required'})
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
         return Response(
             {
                 'message': 'session_key_not_found',
-            }, status=status.HTTP_404_NOT_FOUND)
+            })
     
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
         return Response({"message": "user_not_found"},
-                        status=status.HTTP_404_NOT_FOUND)
+                )
     
     return Response({'data' : {k: v for k, v in parse_userinfo(user_info).items() if v is not None}})
 
@@ -650,22 +631,20 @@ def get_userinfo_session(request):
                 'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
             }
         )),
-        400: openapi.Response('Bad Request'),
-        404: openapi.Response('Session not found'),
     }
 )
 @api_view(['POST'])
 def end_session(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'session_key_required'})
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
         return Response(
             {
                 'message': 'session_key_not_found',
-            }, status=status.HTTP_404_NOT_FOUND)
+            })
     
     session_info.delete()
     return Response({'message': 'session_closed'})
