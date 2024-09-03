@@ -1,11 +1,10 @@
+from pydoc import describe
+
+from django.template.defaulttags import comment
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from .views import home, register_student, report, policy, UserInfoViewSet, GaitResultViewSet, \
-    BodyResultViewSet, CustomPasswordChangeView, CodeInfoViewSet
-
 from rest_framework import routers
-
-from . import views
+from . import views, views_mobile
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -16,6 +15,8 @@ from django.conf import settings
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+
+from .views import home, register_student, report, policy, CustomPasswordChangeView, CodeInfoViewSet
 
 schema_view = get_schema_view( 
     openapi.Info( 
@@ -29,11 +30,10 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,), 
 )
 
-router = routers.DefaultRouter()
-router.register(r'users', UserInfoViewSet)
-router.register(r'analysis/gait', GaitResultViewSet)
-router.register(r'analysis/body', BodyResultViewSet)
-router.register(r'analysis/code', CodeInfoViewSet)
+# router = routers.DefaultRouter()
+# router.register(r'users', UserInfoViewSet)
+# router.register(r'analysis/gait', GaitResultViewSet)
+# router.register(r'analysis/body', BodyResultViewSet)
 
 urlpatterns = [
     path('', home, name='home'),
@@ -42,7 +42,7 @@ urlpatterns = [
     path('report/', report, name='report'),
     path('policy/', policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
-    path('api/', include(router.urls)),
+
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('password-change/', CustomPasswordChangeView.as_view(), name='password_change'),
     path('password-change-done/', auth_views.PasswordChangeDoneView.as_view(template_name='password_change_done.html'), name='password_change_done'),
@@ -52,13 +52,24 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # for custom authentication process
-    path('api/auth-mobile/', views.auth_mobile, name='auth_mobile'),
-    path('api/user-mobile/', views.user_mobile, name='user_mobile'),
     path('api/login-kiosk/', views.login_kiosk, name='login_kiosk'),
     path('api/login-mobile-qr/', views.login_mobile_qr, name='login_mobile_qr'),
     path('api/login-kiosk-id/', views.login_kiosk_id, name='login_kiosk_id'),
     path('api/get-userinfo-session/', views.get_userinfo_session, name='get_userinfo_session'),
     path('api/end-session/', views.end_session, name='end_session'),
+
+    path('api/analysis/gait/create_result/', views.create_gait_result, name='create_gait_result'),
+    path('api/analysis/gait/get_result/', views.get_gait_result, name='get_gait_result'),
+    path('api/analysis/body/create_result/', views.create_body_result, name='create_body_result'),
+    path('api/analysis/body/get_result/', views.get_body_result, name='get_body_result'),
+
+    ## 모바일 전용 API (모바일 이외의 용도로 사용하지 말것)
+    path('api/mobile/auth/request_auth/', views_mobile.request_auth, name='mobile-auth-request_auth'), # 휴대폰 인증 요청
+    path('api/mobile/user/get_user/', views_mobile.get_user, name='mobile-user-get_user'), # 사용자 정보 가져오기
+    path('api/mobile/code/get_code/', views_mobile.get_code, name='mobile-code-get_code'), # 코드 정보 가져오기
+    path('api/mobile/gait/get_gait_result/', views_mobile.get_gait_result, name='mobile-gait-get_gait_result'), # 보행 결과 가져오기
+    path('api/mobile/body/get_body_result/', views_mobile.get_body_result, name='mobile-body-get_body_result'), # 체형 결과 가져오기
+
 ]
 
 if settings.DEBUG:

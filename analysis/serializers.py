@@ -7,6 +7,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 
+class CodeInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CodeInfo
+        fields = '__all__'
+        read_only_fields = ['id', 'created_dt']
+
 class SessionInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionInfo
@@ -16,12 +22,6 @@ class SessionInfoSerializer(serializers.ModelSerializer):
 class SchoolInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolInfo
-        fields = '__all__'
-        read_only_fields = ['id', 'created_dt']
-
-class CodeInfoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CodeInfo
         fields = '__all__'
         read_only_fields = ['id', 'created_dt']
 
@@ -53,9 +53,12 @@ class BodyResultSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'created_dt']
 
-class GroupSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Group
-        fields = ['url', 'name']
+class GaitResponseSerializer(serializers.Serializer):
+    data = GaitResultSerializer(many=True)
+    message = serializers.CharField(default="OK")
+    status = serializers.IntegerField(default=200)
 
-
+class BodyResponseSerializer(serializers.Serializer):
+    data = BodyResultSerializer(many=True)
+    message = serializers.CharField(default="OK")
+    status = serializers.IntegerField(default=200)
