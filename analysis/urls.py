@@ -1,9 +1,7 @@
-from pydoc import describe
 
-from django.template.defaulttags import comment
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from rest_framework import routers
+
 from . import views, views_mobile
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -15,8 +13,6 @@ from django.conf import settings
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
-from .views import home, register_student, report, policy, CustomPasswordChangeView, CodeInfoViewSet
 
 schema_view = get_schema_view( 
     openapi.Info( 
@@ -30,21 +26,18 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,), 
 )
 
-# router = routers.DefaultRouter()
-# router.register(r'users', UserInfoViewSet)
-# router.register(r'analysis/gait', GaitResultViewSet)
-# router.register(r'analysis/body', BodyResultViewSet)
-
 urlpatterns = [
-    path('', home, name='home'),
+    path('', views.home, name='home'),
     path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register_student'), name='login'),
-    path('register-student/', register_student, name='register_student'),
-    path('report/', report, name='report'),
-    path('policy/', policy, name='policy'),
+    path('register-student/', views.register_student, name='register_student'),
+    path('report/', views.report, name='report'),
+    path('policy/', views.policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 
+    path('body_report/<int:id>/', views.body_report, name='body_report'),
+
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('password-change/', CustomPasswordChangeView.as_view(), name='password_change'),
+    path('password-change/', views.CustomPasswordChangeView.as_view(), name='password_change'),
     path('password-change-done/', auth_views.PasswordChangeDoneView.as_view(template_name='password_change_done.html'), name='password_change_done'),
 
     # for JWT token

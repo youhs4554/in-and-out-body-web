@@ -3,11 +3,11 @@ from django.urls import reverse, resolve
 from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .views import home, register_student, report, policy, auth_mobile, login_kiosk, login_mobile_qr, login_kiosk_id, get_userinfo_session, end_session, CustomPasswordChangeView
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from .models import AuthInfo, UserInfo
+from . import views, views_mobile
 
 base_url = 'http://localhost:8000/'
 mobile_uid = 'qwer'
@@ -19,7 +19,7 @@ class UrlsTestCase(SimpleTestCase):
     
     def test_home_url(self):
         url = reverse('home')
-        self.assertEqual(resolve(url).func, home)
+        self.assertEqual(resolve(url).func, views.home)
 
     def test_login_url(self):
         url = reverse('login')
@@ -27,15 +27,15 @@ class UrlsTestCase(SimpleTestCase):
 
     def test_register_student_url(self):
         url = reverse('register_student')
-        self.assertEqual(resolve(url).func, register_student)
+        self.assertEqual(resolve(url).func, views.register_student)
 
     def test_report_url(self):
         url = reverse('report')
-        self.assertEqual(resolve(url).func, report)
+        self.assertEqual(resolve(url).func, views.report)
 
     def test_policy_url(self):
         url = reverse('policy')
-        self.assertEqual(resolve(url).func, policy)
+        self.assertEqual(resolve(url).func, views.policy)
 
     def test_logout_url(self):
         url = reverse('logout')
@@ -43,7 +43,7 @@ class UrlsTestCase(SimpleTestCase):
 
     def test_password_change_url(self):
         url = reverse('password_change')
-        self.assertEqual(resolve(url).func.view_class, CustomPasswordChangeView)
+        self.assertEqual(resolve(url).func.view_class, views.CustomPasswordChangeView)
 
     def test_password_change_done_url(self):
         url = reverse('password_change_done')
@@ -57,29 +57,29 @@ class UrlsTestCase(SimpleTestCase):
         url = reverse('token_refresh')
         self.assertEqual(resolve(url).func.view_class, TokenRefreshView)
 
-    def test_auth_mobile_url(self):
-        url = reverse('auth_mobile')
-        self.assertEqual(resolve(url).func, auth_mobile)
+    def test_request_auth_url(self):
+        url = reverse('mobile-auth-request_auth')
+        self.assertEqual(resolve(url).func, views_mobile.request_auth)
 
     def test_login_kiosk_url(self):
         url = reverse('login_kiosk')
-        self.assertEqual(resolve(url).func, login_kiosk)
+        self.assertEqual(resolve(url).func, views.login_kiosk)
 
     def test_login_mobile_qr_url(self):
         url = reverse('login_mobile_qr')
-        self.assertEqual(resolve(url).func, login_mobile_qr)
+        self.assertEqual(resolve(url).func, views.login_mobile_qr)
 
     def test_login_kiosk_id_url(self):
         url = reverse('login_kiosk_id')
-        self.assertEqual(resolve(url).func, login_kiosk_id)
+        self.assertEqual(resolve(url).func, views.login_kiosk_id)
 
     def test_get_userinfo_session_url(self):
         url = reverse('get_userinfo_session')
-        self.assertEqual(resolve(url).func, get_userinfo_session)
+        self.assertEqual(resolve(url).func, views.get_userinfo_session)
 
     def test_end_session_url(self):
         url = reverse('end_session')
-        self.assertEqual(resolve(url).func, end_session)
+        self.assertEqual(resolve(url).func, views.end_session)
 
 class GaitResultTests(TestCase):
     def setUp(self):
@@ -94,7 +94,7 @@ class GaitResultTests(TestCase):
         )
 
         # Authenticate and get access token
-        auth_response = self.kiosk_client.post('/api/auth-mobile/', {'mobile_uid': mobile_uid}, format='json')
+        auth_response = self.kiosk_client.post('/api/mobile/auth/request_auth/', {'mobile_uid': mobile_uid}, format='json')
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         self.mobile_client = APIClient()
         self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_response.data['data']['data']['jwt_tokens']['access_token'])
@@ -159,7 +159,7 @@ class GaitResultTests(TestCase):
     def test_create_gait_result_missing_session_key(self):
         invalid_data = {'gait_data': self.gait_data['gait_data']}  # No session key provided
         response = self.kiosk_client.post(base_url + 'api/analysis/gait/create_result/', invalid_data, format='json')
-        self.assertEqual(response.data['message'], 'session_key_required')
+        self.assertEqual(response.data['data']['message'], 'session_key_required')
 
 
 class BodyResultTests(TestCase):
@@ -175,7 +175,7 @@ class BodyResultTests(TestCase):
         )
 
         # Authenticate and get access token
-        auth_response = self.kiosk_client.post('/api/auth-mobile/', {'mobile_uid': mobile_uid}, format='json')
+        auth_response = self.kiosk_client.post('/api/mobile/auth/request_auth/', {'mobile_uid': mobile_uid}, format='json')
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         self.mobile_client = APIClient()
         self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_response.data['data']['data']['jwt_tokens']['access_token'])
@@ -230,4 +230,4 @@ class BodyResultTests(TestCase):
     def test_create_body_result_missing_session_key(self):
         invalid_data = {'body_data': self.body_data['body_data']}  # No session key provided
         response = self.kiosk_client.post(base_url + 'api/analysis/body/create_result/', invalid_data, format='json')
-        self.assertEqual(response.data['message'], 'session_key_required')
+        self.assertEqual(response.data['data']['message'], 'session_key_required')
