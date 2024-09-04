@@ -273,7 +273,7 @@ report_items = [
 
 def body_report(request, id):
     student = get_object_or_404(UserInfo, id=id)
-        
+
     if not report_items:
         return render(request, '404.html', status=404)
 
@@ -285,7 +285,7 @@ def body_report(request, id):
         'report_items': report_items,
         'trend_data_dict': trend_data_dict,
     }
-    
+
     return render(request, 'body_report.html', context)
 
 
@@ -636,46 +636,6 @@ def login_kiosk(request):
 
     return Response({'data' : {'session_key': session_key, 'message': 'success', 'status': 200}})
 
-@swagger_auto_schema(
-    method='post',
-    operation_description="Login using session-key-generated QR code in mobile app",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key from QR code'),
-            'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID (i.e., index)')
-        },
-        required=['session_key'],
-    ),
-    responses={
-        200: openapi.Response('Login Success', 
-                              openapi.Schema(type=openapi.TYPE_OBJECT, properties={
-                                  'data': 
-                               openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
-                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
-            }
-        )})),
-        400: 'Bad Request; session_key is not provided in the request body',
-        404: 'Not Found; session_key is not found',
-    }
-)
-@api_view(['POST'])
-def login_mobile_qr(request):
-    session_key = request.data.get('session_key')
-    if not session_key:
-        return Response({'data': {'message': 'session_key_required', 'status': 400}})
-    try:
-        session_info = SessionInfo.objects.get(session_key=session_key)
-    except SessionInfo.DoesNotExist:
-        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
-
-    session_info.user_id = request.user.id
-    session_info.save()
-
-    return Response({'data': {'session_key': session_key}, 'message': 'login_success', 'status': 200})
 
 @swagger_auto_schema(
     method='post',
@@ -717,7 +677,7 @@ def login_kiosk_id(request):
         user_info = UserInfo.objects.get(phone_number=phone_number)
     except UserInfo.DoesNotExist:
         return Response({'data': {"message": "user_not_found", 'status': 401}})
-    
+
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
     else:
