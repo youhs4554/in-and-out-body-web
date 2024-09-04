@@ -159,7 +159,7 @@ class GaitResultTests(TestCase):
     def test_create_gait_result_missing_session_key(self):
         invalid_data = {'gait_data': self.gait_data['gait_data']}  # No session key provided
         response = self.kiosk_client.post(base_url + 'api/analysis/gait/create_result/', invalid_data, format='json')
-        self.assertEqual(response.data['message'], 'session_key_required')
+        self.assertEqual(response.data['data']['message'], 'session_key_required')
 
 
 class BodyResultTests(TestCase):
@@ -230,4 +230,4 @@ class BodyResultTests(TestCase):
     def test_create_body_result_missing_session_key(self):
         invalid_data = {'body_data': self.body_data['body_data']}  # No session key provided
         response = self.kiosk_client.post(base_url + 'api/analysis/body/create_result/', invalid_data, format='json')
-        self.assertEqual(response.data['message'], 'session_key_required')
+        self.assertEqual(response.data['data']['message'], 'session_key_required')

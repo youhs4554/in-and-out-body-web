@@ -298,26 +298,6 @@ class CustomPasswordChangeView(PasswordChangeView):
     template_name = 'password_change.html'
     success_url = '/password-change-done/'
 
-# 코드 정보 조회 기능 추가 (240903 BS)
-class CodeInfoViewSet(viewsets.ViewSet):
-    queryset = CodeInfo.objects.all().order_by('-created_dt')
-    serializer_class = CodeInfoSerializer
-    # permission_classes = [permissions.IsAuthenticated]
-
-    @action(detail=False, methods=['get'])
-    def get_code(self, request):
-        group_id_list = self.request.query_params.getlist('group_id_list')
-        if not group_id_list:
-            return Response({'message': 'group_id_list_required'}, status=status.HTTP_400_BAD_REQUEST)
-        results = CodeInfo.objects.filter(group_id__in=group_id_list)
-        if not results.exists():
-            return Response({"message": "code_not_found"})
-
-        # Serialize the GaitResult objects
-        serializer = CodeInfoSerializer(results, many=True)
-
-        return Response({'data': serializer.data})
-
 @swagger_auto_schema(
     method='post',
     operation_description="Create a new gait analysis result record",
@@ -367,20 +347,20 @@ class CodeInfoViewSet(viewsets.ViewSet):
 def create_gait_result(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     gait_data = request.data.get('gait_data')
     if not gait_data:
-        return Response({'message': 'gait_data_required', 'status': 400})
+        return Response({'data': {'message': 'gait_data_required', 'status': 400}})
 
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response({'message': 'session_key_not_found', 'status': 404})
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
-        return Response({'message': 'user_not_found', 'status': 401})
+        return Response({'data': {'message': 'user_not_found', 'status': 401}})
 
     # Retrieve or create a fixed "null school" instance
     null_school, created = SchoolInfo.objects.get_or_create(
@@ -400,9 +380,9 @@ def create_gait_result(request):
 
     if serializer.is_valid():
         serializer.save()
-        return Response({'message': 'created_gait_result', 'status': 200})
+        return Response({'data': {'message': 'created_gait_result', 'status': 200}})
     else:
-        return Response({'message' : serializer.errors, 'status': 500})
+        return Response({'data': {'message' : serializer.errors, 'status': 500}})
 
 
 @swagger_auto_schema(
@@ -427,17 +407,17 @@ def get_gait_result(request):
     if request.user.id is None:
         session_key = request.query_params.get('session_key')
         if not session_key:
-            return Response({'message': 'session_key_required', 'status': 400})
+            return Response({'data': {'message': 'session_key_required', 'status': 400}})
 
         try:
             session_info = SessionInfo.objects.get(session_key=session_key)
         except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found', 'status': 404})
+            return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
         try:
             user_info = UserInfo.objects.get(id=session_info.user_id)
         except UserInfo.DoesNotExist:
-            return Response({'message': 'user_not_found', 'status': 401})
+            return Response({'data': {'message': 'user_not_found', 'status': 401}})
         user_id = user_info.id
     else:
         # for JWT authorized user
@@ -460,14 +440,14 @@ def get_gait_result(request):
         if id is not None:
             current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
             if not current_result:
-                return Response({"message": "gait_result_not_found"})
+                return Response({'data': {"message": "gait_result_not_found"}})
             gait_results = GaitResult.objects.filter(
                 user_id=user_id,
                 created_dt__lte=current_result.created_dt
             ).order_by('-created_dt')
 
     if not gait_results.exists():
-        return Response({"message": "gait_result_not_found", "status": 404})
+        return Response({'data': {"message": "gait_result_not_found", "status": 404}})
     count = request.query_params.get('count', None)
     if count is not None:
         gait_results = gait_results.all()[:int(count)]
@@ -515,20 +495,20 @@ def get_gait_result(request):
 def create_body_result(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     body_data = request.data.get('body_data')
     if not body_data:
-        return Response({'message': 'body_data_required', 'status': 400})
+        return Response({'data': {'message': 'body_data_required', 'status': 400}})
 
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response({'message': 'session_key_not_found', 'status': 404})
+        return Response({'data' : {'message': 'session_key_not_found', 'status': 404}})
 
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
-        return Response({'message': 'user_not_found', 'status': 401})
+        return Response({'data': {'message': 'user_not_found', 'status': 401}})
 
     # Retrieve or create a fixed "null school" instance
     null_school, created = SchoolInfo.objects.get_or_create(
@@ -547,9 +527,9 @@ def create_body_result(request):
 
     if serializer.is_valid():
         serializer.save()
-        return Response({'message': 'created_body_result', 'status': 200})
+        return Response({'data': {'message': 'created_body_result', 'status': 200}})
     else:
-        return Response({'message' : serializer.errors, 'status': 500})
+        return Response({'data': {'message' : serializer.errors, 'status': 500}})
 
 @swagger_auto_schema(
     method='get',
@@ -574,17 +554,17 @@ def get_body_result(request):
     if request.user.id is None:
         session_key = request.query_params.get('session_key')
         if not session_key:
-            return Response({'message': 'session_key_required', 'status': 400})
+            return Response({'data': {'message': 'session_key_required', 'status': 400}})
 
         try:
             session_info = SessionInfo.objects.get(session_key=session_key)
         except SessionInfo.DoesNotExist:
-            return Response({'message': 'session_key_not_found', 'status': 404})
+            return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
         try:
             user_info = UserInfo.objects.get(id=session_info.user_id)
         except UserInfo.DoesNotExist:
-            return Response({'message': 'user_not_found', 'status': 401})
+            return Response({'data': {'message': 'user_not_found', 'status': 401}})
         user_id = user_info.id
     else:
         # for JWT authorized user
@@ -606,7 +586,7 @@ def get_body_result(request):
             body_results = body_results.filter(id=id)
 
     if not body_results.exists():
-        return Response({"message": "body_result_not_found", "status": 404})
+        return Response({'data': {"message": "body_result_not_found", "status": 404}})
 
     count = request.query_params.get('count', None)
     if count is not None:
@@ -645,7 +625,7 @@ def get_body_result(request):
 def login_kiosk(request):
     kiosk_id = request.data.get('kiosk_id')
     if not kiosk_id:
-        return Response({'message': 'kiosk_id_required', 'status': 400})
+        return Response({'data': {'message': 'kiosk_id_required', 'status': 400}})
     
     # POST 메소드를 사용하여 키오스크 로그인 요청 처리
     session_key = uuid.uuid4().hex
@@ -686,14 +666,11 @@ def login_kiosk(request):
 def login_mobile_qr(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'session_key_not_found', 'status': 404
-            })
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
     session_info.user_id = request.user.id
     session_info.save()
@@ -723,27 +700,23 @@ def login_mobile_qr(request):
 def login_kiosk_id(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     
     phone_number = request.data.get('phone_number')
     password = request.data.get('password')
     
     if not phone_number or not password:
-        return Response({'message': 'phone_number_and_password_required', 'status': 400})
+        return Response({'data': {'message': 'phone_number_and_password_required', 'status': 400}})
 
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'session_key_not_found', 'status': 404
-            })
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
     try:
         user_info = UserInfo.objects.get(phone_number=phone_number)
     except UserInfo.DoesNotExist:
-        return Response({"message": "user_not_found", 'status': 401},
-                )
+        return Response({'data': {"message": "user_not_found", 'status': 401}})
     
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
@@ -778,20 +751,16 @@ def login_kiosk_id(request):
 def get_userinfo_session(request):
     session_key = request.query_params.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'session_key_not_found', 'status': 404,
-            })
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
     
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
-        return Response({"message": "user_not_found", "status": 401},
-                )
+        return Response({"data": {"message": "user_not_found", "status": 401}})
     
     return Response({'data' : parse_userinfo(user_info), 'message': 'OK', 'status': 200})
 
@@ -815,14 +784,11 @@ def get_userinfo_session(request):
 def end_session(request):
     session_key = request.data.get('session_key')
     if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
+        return Response({'data': {'message': 'session_key_required', 'status': 400}})
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'session_key_not_found', 'status': 404
-            })
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
     
     session_info.delete()
     return Response({'data' : {'message': 'session_closed', 'status': 200}, 'message': 'session_closed', 'status': 200})
