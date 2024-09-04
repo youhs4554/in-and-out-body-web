@@ -26,7 +26,7 @@
                     <th>반</th>
                     <th>번호</th>
                     <th>이름</th>
-                    <th>전화번호</th>
+                    <th>체형 분석 결과</th>
                 </tr>
             </thead>
             <tbody>
@@ -36,7 +36,7 @@
                     <td>{{ user.student_class }}</td>
                     <td>{{ user.student_number }}</td>
                     <td>{{ user.student_name }}</td>
-                    <td>{{ user.phone_number }}</td>
+                    <td><a href="{% url 'body_report' user.id %}" class="button">링크</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
