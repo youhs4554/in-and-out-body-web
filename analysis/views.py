@@ -475,21 +475,6 @@ def get_gait_result(request):
     # Serialize the GaitResult objects
     serializer = GaitResultSerializer(gait_results, many=True)
 
-    # TODO: get range of gait parameters
-    codeinfo = CodeInfo.objects.filter(group_id='02')
-    code_ids
-
-    import pdb; pdb.set_trace()
-
-    # range_of_params = {}
-    # for param in codeinfo.code_id:
-
-    # range_of_params = {
-    #     f'{param}_normal_range' : [codeinfo.normal_min_value, codeinfo.normal_max_value],
-    #     f'{param}_value_range': [codeinfo.min_value, codeinfo.max_value],
-    # }
-
-
     return Response({'data': serializer.data, 'message': 'OK', 'status': 200})
         
 @swagger_auto_schema(
@@ -759,14 +744,13 @@ def login_kiosk_id(request):
     except UserInfo.DoesNotExist:
         return Response({"message": "user_not_found", 'status': 401},
                 )
-
-    session_info.user_id = user_info.id
-    session_info.save()
-
-    if check_password(password, user_info.password) and (phone_number == user_info.phone_number):
-        return Response({'data' : {'message': 'login_success', 'status': 200}, 'message': 'login_success', 'status': 200})
-    else:
+    
+    if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
+    else:
+        session_info.user_id = user_info.id
+        session_info.save()
+        return Response({'data' : {'message': 'login_success', 'status': 200}, 'message': 'login_success', 'status': 200})
 
 @swagger_auto_schema(
     method='get',
