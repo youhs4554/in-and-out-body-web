@@ -458,49 +458,6 @@ def login_kiosk(request):
 
     return Response({'data' : {'session_key': session_key, 'message': 'success', 'status': 200}})
 
-@swagger_auto_schema(
-    method='post',
-    operation_description="Login using session-key-generated QR code in mobile app",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key from QR code'),
-            'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID (i.e., index)')
-        },
-        required=['session_key'],
-    ),
-    responses={
-        200: openapi.Response('Login Success', 
-                              openapi.Schema(type=openapi.TYPE_OBJECT, properties={
-                                  'data': 
-                               openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
-                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
-            }
-        )})),
-        400: 'Bad Request; session_key is not provided in the request body',
-        404: 'Not Found; session_key is not found',
-    }
-)
-@api_view(['POST'])
-def login_mobile_qr(request):
-    session_key = request.data.get('session_key')
-    if not session_key:
-        return Response({'message': 'session_key_required', 'status': 400})
-    try:
-        session_info = SessionInfo.objects.get(session_key=session_key)
-    except SessionInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'session_key_not_found', 'status': 404
-            })
-
-    session_info.user_id = request.user.id
-    session_info.save()
-
-    return Response({'data': {'session_key': session_key}, 'message': 'login_success', 'status': 200})
 
 @swagger_auto_schema(
     method='post',

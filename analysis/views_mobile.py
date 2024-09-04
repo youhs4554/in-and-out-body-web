@@ -9,9 +9,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from analysis.helpers import parse_userinfo
-from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult
+from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
-
 
 @swagger_auto_schema(
     method='post',
@@ -53,18 +52,15 @@ from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyR
     }
 )
 @api_view(['POST'])
-def request_auth(request):
+def login_mobile(request):
     mobile_uid = request.data.get('mobile_uid')
     if not mobile_uid:
-        return Response({'message': 'mobile_uid_required', 'status': 400})
+        return Response({'message': 'mobile_uid_required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         auth_info = AuthInfo.objects.get(uid=mobile_uid)
     except AuthInfo.DoesNotExist:
-        return Response(
-            {
-                'message': 'user_not_found', 'status': 401
-            })
+        return Response({'message': 'user_not_found'}, status=status.HTTP_200_OK)
 
     authorized_user_info, user_created = UserInfo.objects.update_or_create(
         phone_number=auth_info.phone_number,
@@ -84,18 +80,58 @@ def request_auth(request):
     access_token = str(token.access_token)
 
     data_obj = {
-        'data': {
-            'user_info': parse_userinfo(authorized_user_info),
-            'jwt_tokens': {
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-            },
+        'user_info': parse_userinfo(authorized_user_info),
+        'jwt_tokens': {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
         },
     }
 
     auth_info.delete()
 
-    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}, 'message': 'OK', 'status': 200})
+    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Login using session-key-generated QR code in mobile app",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key from QR code'),
+            'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID (i.e., index)')
+        },
+        required=['session_key'],
+    ),
+    responses={
+        200: openapi.Response('Login Success',
+                              openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+                                  'data':
+                               openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
+                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
+            }
+        )})),
+        400: 'Bad Request; session_key is not provided in the request body',
+        404: 'Not Found; session_key is not found',
+    }
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def login_mobile_qr(request):
+    session_key = request.data.get('session_key')
+    if not session_key:
+        return Response({'message': 'session_key_required'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        session_info = SessionInfo.objects.get(session_key=session_key)
+    except SessionInfo.DoesNotExist:
+        return Response({'message': 'session_key_not_found'}, status=status.HTTP_404_NOT_FOUND)
+
+    session_info.user_id = request.user.id
+    session_info.save()
+
+    return Response({'data': {'session_key': session_key}}, status=status.HTTP_200_OK)
 
 
 # access token으로 사용자 정보 가져오기
@@ -118,7 +154,7 @@ def get_user(request):
         'user_info': user_info,
         'message': 'success',
     }
-    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}})
+    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
 
 # group_id 들에 대한 CodeInfo 정보 반환
 # @param List group_id_list
@@ -139,7 +175,7 @@ def get_code(request):
     # Serialize the CodeInfo objects
     serializer = CodeInfoSerializer(results, many=True)
 
-    return Response({'data': serializer.data})
+    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
 # 보행 결과 리스트 반환
 # @param String? id : GaitResult의 id
@@ -153,7 +189,7 @@ def get_gait_result(request):
     if id is not None:
         current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
         if not current_result:
-            return Response({"message": "gait_result_not_found"})
+            return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
 
         gait_results = GaitResult.objects.filter(
             user_id=user_id,
@@ -161,7 +197,7 @@ def get_gait_result(request):
         ).order_by('-created_dt')[:7]
     else:
         if not gait_results.exists():
-            return Response({"message": "gait_result_not_found"})
+            return Response({"message": "gait_result_not_found"}, status=status.HTTP_200_OK)
 
     # Serialize the GaitResult objects
     serializer = GaitResultSerializer(gait_results, many=True)
@@ -181,8 +217,8 @@ def get_body_result(request):
         body_results = body_results.filter(id=body_id)
 
     if not body_results.exists():
-        return Response({"message": "body_result_not_found"})
+        return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Serialize the GaitResult objects
     serializer = BodyResultSerializer(body_results, many=True)
-    return Response({'data': serializer.data})
+    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
