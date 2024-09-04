@@ -12,18 +12,17 @@ class TimeoutException(Exception):
 def parse_userinfo(userinfo_obj):
     return {
         'user_id': userinfo_obj.id,
-        'password': userinfo_obj.password,
-        'user_type': userinfo_obj.user_type if userinfo_obj.user_type else None,
+        'user_type': userinfo_obj.user_type if userinfo_obj.user_type else 'N/A',
         'user_name': userinfo_obj.username,
         'created_dt': userinfo_obj.created_dt,
-        'year': userinfo_obj.year if userinfo_obj.year else None,
-        'school_id': userinfo_obj.school_id if userinfo_obj.school_id else None,
-        'school_name': userinfo_obj.school.school_name if userinfo_obj.school else None,
-        'student_grade': userinfo_obj.student_grade if userinfo_obj.student_grade else None,
-        'student_class': userinfo_obj.student_class if userinfo_obj.student_class else None,
-        'student_number': userinfo_obj.student_number if userinfo_obj.student_number else None,
-        'student_name': userinfo_obj.student_name if userinfo_obj.student_name else None,
-        'phone_number': userinfo_obj.phone_number if userinfo_obj.phone_number else None,
+        'year': userinfo_obj.year if userinfo_obj.year else 'N/A',
+        'school_id': userinfo_obj.school_id if userinfo_obj.school_id else 'N/A',
+        'school_name': userinfo_obj.school.school_name if userinfo_obj.school else 'N/A',
+        'student_grade': userinfo_obj.student_grade if userinfo_obj.student_grade else 'N/A',
+        'student_class': userinfo_obj.student_class if userinfo_obj.student_class else 'N/A',
+        'student_number': userinfo_obj.student_number if userinfo_obj.student_number else 'N/A',
+        'student_name': userinfo_obj.student_name if userinfo_obj.student_name else 'N/A',
+        'phone_number': userinfo_obj.phone_number if userinfo_obj.phone_number else 'N/A',
     }
 
 
