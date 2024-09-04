@@ -3,6 +3,19 @@ from email.policy import default
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+class CodeInfo(models.Model):
+    group_id = models.CharField(max_length=4)
+    code_id = models.CharField(max_length=20)
+    code_name = models.CharField(max_length=100)
+    min_value = models.FloatField(null=True)
+    max_value = models.FloatField(null=True)
+    normal_min_value = models.FloatField(null=True)
+    normal_max_value =  models.FloatField(null=True)
+    caution_min_value = models.FloatField(null=True)
+    caution_max_value = models.FloatField(null=True)
+    unit_name = models.CharField(max_length=20, null=True)
+    created_dt = models.DateTimeField(auto_now_add=True)
+
 class AuthInfo(models.Model):
     uid = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=100)
@@ -64,7 +77,6 @@ class GaitResult(models.Model):
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
-    student_name = models.CharField(max_length=100, null=True, blank=True)
     score = models.FloatField(null=True)
     velocity = models.FloatField(null=True)
     cadence = models.FloatField(null=True)
@@ -88,6 +100,9 @@ class GaitResult(models.Model):
     stridetm_cv_r = models.FloatField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"GaitResult for {self.student_name} at {self.created_dt}"
+
 class BodyResult(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
@@ -106,3 +121,6 @@ class BodyResult(models.Model):
     scoliosis_shoulder_ratio = models.FloatField(null=True)
     scoliosis_hip_ratio = models.FloatField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"BodyResult for {self.student_name} at {self.created_dt}"
