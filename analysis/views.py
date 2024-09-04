@@ -533,8 +533,8 @@ def create_body_result(request):
     # Retrieve or create a fixed "null school" instance
     null_school, created = SchoolInfo.objects.get_or_create(
         id=-1,
-        school_name='null',
-        contact_number='null'
+        school_name='N/A',
+        contact_number='N/A'
     )
 
     data = body_data.copy()
