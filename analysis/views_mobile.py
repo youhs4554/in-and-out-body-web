@@ -1,14 +1,16 @@
 import os
 
 from django.contrib.auth.hashers import make_password
+from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+import requests
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from analysis.helpers import parse_userinfo
+from analysis.helpers import generate_presigned_url, parse_userinfo
 from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
@@ -218,6 +220,25 @@ def get_body_result(request):
 
     if not body_results.exists():
         return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # 수정된 body_results를 리스트로 저장
+    updated_body_results = []
+
+    for body_result in body_results:
+        created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+        # Presigned URL 생성 (일정 시간 동안)
+        body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
+        body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
+
+        if requests.get(body_result.image_front_url).status_code in [400, 404]:
+            body_result.image_front_url = None
+        if requests.get(body_result.image_side_url).status_code in [400, 404]:
+            body_result.image_side_url = None
+
+        updated_body_results.append(body_result)
+
+    # 모든 객체를 한 번에 업데이트
+    BodyResult.objects.bulk_update(updated_body_results, ['image_front_url', 'image_side_url'])
 
     # Serialize the GaitResult objects
     serializer = BodyResultSerializer(body_results, many=True)

@@ -7,3 +7,6 @@ djangorestframework
 djangorestframework-simplejwt
 drf-yasg
 psycopg2-binary
+boto3 
+django-storages
+pillow

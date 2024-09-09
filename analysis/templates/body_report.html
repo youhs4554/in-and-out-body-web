@@ -1,0 +1,246 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Overview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        .report-card {
+            position: relative;
+            width: 850px;
+            margin: 20px auto;
+            background: linear-gradient(90deg, #62CAE4 0%, #9ECA94 49.67%, #FFCF00 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            filter: drop-shadow(1px 9px 22.7px rgba(0, 0, 0, 0.15));
+            box-sizing: border-box;
+            padding: 16px;
+            display: flex;
+            align-items: center; /* Align items vertically centered */
+            justify-content: space-between; /* Space out content horizontally */
+        }
+
+        .report-card .left-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center content vertically within the left section */
+            max-width: calc(100% - 240px); /* Adjust width to leave space for the icon */
+        }
+
+        .report-card .title,
+        .report-card .description-label,
+        .report-card .description-value,
+        .report-card .result-value {
+            text-align: left; /* Align text to the left */
+            color: #FFF8F8;
+            text-shadow: 0px 2px 5.3px rgba(0, 0, 0, 0.25);
+        }
+
+        .report-card .title {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 64px;
+            line-height: 203%;
+        }
+
+        .report-card .description-label {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 48px;
+            line-height: 203%;
+        }
+
+        .report-card .description-value {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 24px;
+            line-height: 203%;
+        }
+
+        .report-card .result-value {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 24px;
+            line-height: 203%;
+        }
+
+        .report-card img {
+            width: 200px; /* Adjust width to fit your design */
+            height: auto;
+            filter: drop-shadow(0px 5px 15px rgba(0, 0, 0, 0.25));
+        }
+
+        .main-title {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 64px;
+            line-height: 203%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            letter-spacing: 0.3em;
+            background: linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+        
+        .sub-title {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 40px;
+            line-height: 203%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            letter-spacing: 0.3em;
+            background: linear-gradient(0deg, #606060, #606060), linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+
+        .subsub-title {
+            font-family: 'Noto Sans KR';
+            font-style: normal;
+            font-weight: 400;
+            font-size: 15px;
+            line-height: 203%;
+            /* or 30px */
+            display: flex;
+            align-items: center;
+            text-align: center;
+            letter-spacing: 0.3em;
+            background: linear-gradient(0deg, #606060, #606060), linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+
+        .divider {
+            height: 4px;
+            background-color: #e2e8f0;
+            margin: 40px 0;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <!-- Report Cards for All Items -->
+        {% for item in report_items %}
+            <div class="main-title">체형 스캔</div>
+            <div class="sub-title">스캔 항목</div>
+
+            <div class="report-card">
+                <div class="left-content">
+                    <div class="title">{{ item.title }}</div>
+                    <div class="description-label">{{ item.description_label }}</div>
+                    <div class="description-value">{{ item.description_value }}</div>
+                    <div class="result-value">{{ item.status }}</div>
+                </div>
+                <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
+            </div>
+
+            <!-- Line Chart -->
+            <div class="mb-6">
+                <div class="sub-title">변화 추이 - {{ item.title }}</div>
+                <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
+            </div>
+
+            <!-- Section Contents (detailed explanation) -->
+            <div class="mb-6">
+                <div class="mb-6 p-4 border rounded-lg bg-white">
+                    <h2 class="text-xl font-semibold mb-2">{{ item.title }}</h2>
+                    {% for key, content in item.sections.items %}
+                        <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
+                            <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
+                            <p class="text-sm text-gray-600">{{ content|safe }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+        {% endfor %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prepare trend data as JSON
+            const trendDataDict = {{ trend_data_dict|safe }};
+
+            // Initialize charts for each item
+            {% for item in report_items %}
+                var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
+                {% if item.alias == 'spinal_imbalance' or item.alias == 'o_x_legs' %}
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: '{{ item.title }} Left/Upper',
+                                data: trendDataDict['{{ item.alias }}'].val1,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 2
+                            },
+                            {
+                                label: '{{ item.title }} Right/Lower',
+                                data: trendDataDict['{{ item.alias }}'].val2,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderWidth: 2
+                            }
+                        ]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: 'Date' }},
+                                y: { title: { display: true, text: 'Value' }}
+                            }
+                        }
+                    });
+                {% else %}
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: '{{ item.title }}',
+                                data: trendDataDict['{{ item.alias }}'].values,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: 'Date' }},
+                                y: { title: { display: true, text: 'Value' }}
+                            }
+                        }
+                    });
+                {% endif %}
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>
