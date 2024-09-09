@@ -1,4 +1,4 @@
-django
+django==4.2.15
 pandas
 openpyxl
 fontawesomefree
