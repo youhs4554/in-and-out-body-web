@@ -214,10 +214,17 @@ def get_body_result(request):
     body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
     body_id = request.query_params.get('id', None)
     if body_id is not None:
-        body_results = body_results.filter(id=body_id)
+        current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
+        if not current_result:
+            return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if not body_results.exists():
-        return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+        body_results = BodyResult.objects.filter(
+            user_id=user_id,
+            created_dt__lte=current_result.created_dt
+        ).order_by('-created_dt')[:7]
+    else:
+        if not body_results.exists():
+            return Response({"message": "body_result_not_found"}, status=status.HTTP_200_OK)
 
     # Serialize the GaitResult objects
     serializer = BodyResultSerializer(body_results, many=True)
