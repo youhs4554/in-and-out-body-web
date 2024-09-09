@@ -2,6 +2,7 @@ from email.policy import default
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.contrib.postgres.fields import ArrayField
 
 class CodeInfo(models.Model):
     group_id = models.CharField(max_length=4)
@@ -13,6 +14,15 @@ class CodeInfo(models.Model):
     normal_max_value =  models.FloatField(null=True)
     caution_min_value = models.FloatField(null=True)
     caution_max_value = models.FloatField(null=True)
+    outline = models.CharField(max_length=1000, null=True)
+    risk = models.CharField(max_length=1000, null=True, blank=True)
+    improve = models.CharField(max_length=1000, null=True, blank=True)
+    recommended = ArrayField(models.CharField(max_length=500, null=True, blank=True), size=2, null=True, blank=True)
+    title = models.CharField(max_length=100, null=True)
+    title_outline = models.CharField(max_length=100, null=True)
+    title_risk = models.CharField(max_length=100, null=True)
+    title_improve = models.CharField(max_length=100, null=True)
+    title_recommended = models.CharField(max_length=100, null=True)
     unit_name = models.CharField(max_length=20, null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
@@ -120,6 +130,8 @@ class BodyResult(models.Model):
     forward_head_angle = models.FloatField(null=True)
     scoliosis_shoulder_ratio = models.FloatField(null=True)
     scoliosis_hip_ratio = models.FloatField(null=True)
+    image_front_url = models.CharField(max_length=100, null=True)
+    image_side_url = models.CharField(max_length=100, null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

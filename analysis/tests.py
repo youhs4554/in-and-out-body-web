@@ -59,15 +59,11 @@ class UrlsTestCase(SimpleTestCase):
 
     def test_request_auth_url(self):
         url = reverse('mobile-auth-request_auth')
-        self.assertEqual(resolve(url).func, views_mobile.request_auth)
+        self.assertEqual(resolve(url).func, views_mobile.login_mobile)
 
     def test_login_kiosk_url(self):
         url = reverse('login_kiosk')
         self.assertEqual(resolve(url).func, views.login_kiosk)
-
-    def test_login_mobile_qr_url(self):
-        url = reverse('login_mobile_qr')
-        self.assertEqual(resolve(url).func, views.login_mobile_qr)
 
     def test_login_kiosk_id_url(self):
         url = reverse('login_kiosk_id')
@@ -94,10 +90,11 @@ class GaitResultTests(TestCase):
         )
 
         # Authenticate and get access token
-        auth_response = self.kiosk_client.post('/api/mobile/auth/request_auth/', {'mobile_uid': mobile_uid}, format='json')
+        auth_response = self.kiosk_client.post('/api/mobile/login-mobile/', {'mobile_uid': mobile_uid}, format='json')
+        auth_data = auth_response.json()['data']
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         self.mobile_client = APIClient()
-        self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_response.data['data']['data']['jwt_tokens']['access_token'])
+        self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_data['jwt_tokens']['access_token'])
 
         # Login to kiosk and get session key
         response = self.kiosk_client.post('/api/login-kiosk/', {'kiosk_id': kiosk_id}, format='json')
@@ -105,7 +102,7 @@ class GaitResultTests(TestCase):
         self.session_key = response.data['data']['session_key']
 
         # Login mobile using QR code
-        response = self.mobile_client.post('/api/login-mobile-qr/', {'session_key': self.session_key}, format='json')
+        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Login kiosk using ID and Password
@@ -175,10 +172,11 @@ class BodyResultTests(TestCase):
         )
 
         # Authenticate and get access token
-        auth_response = self.kiosk_client.post('/api/mobile/auth/request_auth/', {'mobile_uid': mobile_uid}, format='json')
+        auth_response = self.kiosk_client.post('/api/mobile/login-mobile/', {'mobile_uid': mobile_uid}, format='json')
+        auth_data = auth_response.json()['data']
         self.assertEqual(auth_response.status_code, status.HTTP_200_OK)
         self.mobile_client = APIClient()
-        self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_response.data['data']['data']['jwt_tokens']['access_token'])
+        self.mobile_client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_data['jwt_tokens']['access_token'])
 
         # Login to kiosk and get session key
         response = self.kiosk_client.post('/api/login-kiosk/', {'kiosk_id': kiosk_id}, format='json')
@@ -186,7 +184,7 @@ class BodyResultTests(TestCase):
         self.session_key = response.data['data']['session_key']
 
         # Login mobile using QR code
-        response = self.mobile_client.post('/api/login-mobile-qr/', {'session_key': self.session_key}, format='json')
+        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Login kiosk using ID and Password

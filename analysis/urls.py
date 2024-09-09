@@ -54,6 +54,7 @@ urlpatterns = [
     path('api/analysis/gait/get_result/', views.get_gait_result, name='get_gait_result'),
     path('api/analysis/body/create_result/', views.create_body_result, name='create_body_result'),
     path('api/analysis/body/get_result/', views.get_body_result, name='get_body_result'),
+    path('api/analysis/get_info/', views.get_info, name='get_info'),
 
     ## 모바일 전용 API (모바일 이외의 용도로 사용하지 말것)
     path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청

@@ -6,25 +6,24 @@ import uuid
 import pandas as pd
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
-from rest_framework import permissions, viewsets, status
 from django.contrib.auth.hashers import make_password, check_password
-from rest_framework import viewsets, permissions
+import requests
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
-from .helpers import parse_userinfo
-from .models import AuthInfo, BodyResult, GaitResult, SchoolInfo, UserInfo, SessionInfo, CodeInfo
+from .helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3
+from .models import BodyResult, CodeInfo, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
-from .serializers import BodyResponseSerializer, BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer, CodeInfoSerializer
+from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
 
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from datetime import datetime as dt
+from django.utils import timezone
 
 def home(request):
     if request.user.is_authenticated:
@@ -129,11 +128,8 @@ report_items = [
         'status': '주의',
         'normal_range': [15.00, 25.00],  # Example range
         'trend': {
-            '지난 3개월': [
-                [20.00, '2024-06-01'],
-                [21.50, '2024-07-01'],
-                [19.75, '2024-08-01']
-            ]
+                '지난 3개월': [(3.2, 3.4, '2023-06-01'), (3.4, 3.5, '2023-07-01'), (3.1, 3.8, '2023-08-01')],
+                'normal_range': [3.0, 4.0]
         },
         'sections': {
             '척추 불균형이란?': '척추 불균형은 척추가 정상 위치에서 벗어나 한쪽으로 기울어지는 상태를 말합니다.',
@@ -234,12 +230,9 @@ report_items = [
         'status': '양호',
         'normal_range': [170.00, 180.00],  # Example range
         'trend': {
-            '지난 3개월': [
-                [173.50, '2024-06-01'],
-                [174.00, '2024-07-01'],
-                [173.75, '2024-08-01']
-            ]
-        },
+                '지난 3개월': [(1.2, 2.4, '2023-06-01'), (1.4, 2.5, '2023-07-01'), (1.1, 2.3, '2023-08-01')],
+                'normal_range': [1.0, 2.5]
+            },
         'sections': {
             'O/X 다리란?': 'O/X 다리는 다리가 서로 바깥쪽 또는 안쪽으로 기울어지는 상태를 말합니다.',
             'O/X 다리의 위험성': 'O/X 다리는 보행 문제를 유발할 수 있으며, 장기적으로 자세 문제를 일으킬 수 있습니다.',
@@ -270,15 +263,31 @@ report_items = [
     }
 ]
 
-
+@login_required
 def body_report(request, id):
+    print(request.user)
     student = get_object_or_404(UserInfo, id=id)
 
     if not report_items:
         return render(request, '404.html', status=404)
 
     # Prepare trend data for each report item
-    trend_data_dict = {item['alias']: item['trend'].get('지난 3개월', []) for item in report_items}
+    trend_data_dict = {}
+    for item in report_items:
+        alias = item['alias']
+        trend_data = item['trend'].get('지난 3개월', [])
+        
+        if alias in ['spinal_imbalance', 'o_x_legs']:
+            trend_data_dict[alias] = {
+                'val1': [value[0] for value in trend_data],  # 왼쪽 또는 상부
+                'val2': [value[1] for value in trend_data],  # 오른쪽 또는 하부
+                'dates': [value[2] for value in trend_data]  # 날짜 (세 번째 요소)
+            }
+        else:
+            trend_data_dict[alias] = {
+                'values': [value[0] for value in trend_data],
+                'dates': [value[1] for value in trend_data]
+            }
 
     context = {
         'student': student,
@@ -287,6 +296,8 @@ def body_report(request, id):
     }
 
     return render(request, 'body_report.html', context)
+
+
 
 
 
@@ -341,7 +352,7 @@ class CustomPasswordChangeView(PasswordChangeView):
         404: 'Not Found; session_key is not found',
         500: 'Internal Server Error'
     },
-    tags=['gait-analysis']
+    tags=['analysis results']
 )
 @api_view(['POST'])
 def create_gait_result(request):
@@ -400,7 +411,7 @@ def create_gait_result(request):
         401: 'Unauthorized; incorrect user or password',
         404: 'Not Found; session_key or gait result is not found',
     },
-    tags=['gait-analysis']
+    tags=['analysis results']
 )
 @api_view(['GET'])
 def get_gait_result(request):
@@ -456,7 +467,53 @@ def get_gait_result(request):
     serializer = GaitResultSerializer(gait_results, many=True)
 
     return Response({'data': serializer.data, 'message': 'OK', 'status': 200})
-        
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get information of gait & body analysis",
+    manual_parameters=[
+        openapi.Parameter('name', openapi.IN_QUERY, description="Name of analysis (i.e., gait or body)", type=openapi.TYPE_STRING, required=True),
+    ],
+    responses={
+        200: 'OK',
+        400: 'Bad Request; invalid name',
+    },
+    tags=['analysis results']
+)
+@api_view(['GET'])
+def get_info(requests):
+    name = requests.query_params.get('name')
+    if name == 'body':
+        group_id = '01'
+    elif name == 'gait':
+        group_id = '02'
+    else:
+        return Response({'data': {'message': 'Bad Request. Invalid name!', 'status': 400}})
+    codeinfo = CodeInfo.objects.filter(group_id=group_id)
+    info = {}
+    for item in codeinfo.values():
+        info[item['code_id']] = {
+            'value_range_min': codeinfo.get(code_id=item['code_id']).min_value,
+            'value_range_max': codeinfo.get(code_id=item['code_id']).max_value,
+            'normal_range_min': codeinfo.get(code_id=item['code_id']).normal_min_value,
+            'normal_range_max': codeinfo.get(code_id=item['code_id']).normal_max_value,
+            'unit_name': item['unit_name'],
+        }
+        if name == 'body':
+            info[item['code_id']].update({
+                'outline': item['outline'],
+                'risk': item['risk'],
+                'improve': item['improve'],
+                'recommended': item['recommended'],
+                'title': item['title'],
+                'title_outline': item['title_outline'],
+                'title_risk': item['title_risk'],
+                'title_improve': item['title_improve'],
+                'title_recommended': item['title_recommended'],
+            })
+
+    return Response({'data': info, 'message': 'OK', 'status': 200})
+    
 @swagger_auto_schema(
     method='post',
     operation_description="Create a new body result record",
@@ -478,9 +535,11 @@ def get_gait_result(request):
                     'forward_head_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Forward head angle'),
                     'scoliosis_shoulder_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Scoliosis shoulder ratio'),
                     'scoliosis_hip_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Scoliosis hip ratio'),
-                    })
+                    }),
+            'image_front': openapi.Schema(type=openapi.TYPE_STRING, description='base64 encoded bytes of the front image'),
+            'image_side': openapi.Schema(type=openapi.TYPE_STRING, description='base64 encoded bytes of the side image'),
         },
-        required=['session_key'],  # Add any required fields here
+        required=['session_key', 'body_data'],  # Add any required fields here
     ),
     responses={
         200: 'OK; created_body_result successfully',
@@ -489,13 +548,14 @@ def get_gait_result(request):
         404: 'Not Found; session_key is not found',
         500: 'Internal Server Error'
     },
-    tags=['body-analysis']
+    tags=['analysis results']
 )
 @api_view(['POST'])
 def create_body_result(request):
     session_key = request.data.get('session_key')
     if not session_key:
         return Response({'data': {'message': 'session_key_required', 'status': 400}})
+    
     body_data = request.data.get('body_data')
     if not body_data:
         return Response({'data': {'message': 'body_data_required', 'status': 400}})
@@ -511,10 +571,12 @@ def create_body_result(request):
         return Response({'data': {'message': 'user_not_found', 'status': 401}})
 
     # Retrieve or create a fixed "null school" instance
-    null_school, created = SchoolInfo.objects.get_or_create(
+    null_school, created = SchoolInfo.objects.update_or_create(
         id=-1,
-        school_name='N/A',
-        contact_number='N/A'
+        defaults=dict(
+            school_name='N/A',
+            contact_number='N/A'
+        )
     )
 
     data = body_data.copy()
@@ -527,6 +589,17 @@ def create_body_result(request):
 
     if serializer.is_valid():
         serializer.save()
+        created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f%z').astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+        image_front_bytes = request.data.get('image_front', None)
+        image_side_bytes = request.data.get('image_side', None)
+        try:
+            # S3에 이미지를 업로드
+            if image_front_bytes:
+                upload_image_to_s3(image_front_bytes, file_keys=['front', created_dt])
+            if image_side_bytes:
+                upload_image_to_s3(image_side_bytes, file_keys=['side', created_dt])
+        except Exception as e:
+            return Response({'data': {'message': str(e), 'status': 500}})
         return Response({'data': {'message': 'created_body_result', 'status': 200}})
     else:
         return Response({'data': {'message' : serializer.errors, 'status': 500}})
@@ -547,7 +620,7 @@ def create_body_result(request):
         404: 'Not Found; session_key is not found',
         500: 'Internal Server Error'
     },
-    tags=['body-analysis']
+    tags=['analysis results']
 )
 @api_view(['GET'])
 def get_body_result(request):
@@ -592,6 +665,25 @@ def get_body_result(request):
     if count is not None:
         body_results = body_results.all()[:int(count)]
 
+    # 수정된 body_results를 리스트로 저장
+    updated_body_results = []
+
+    for body_result in body_results:
+        created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+        # Presigned URL 생성 (일정 시간 동안)
+        body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
+        body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
+
+        if requests.get(body_result.image_front_url).status_code in [400, 404]:
+            body_result.image_front_url = None
+        if requests.get(body_result.image_side_url).status_code in [400, 404]:
+            body_result.image_side_url = None
+
+        updated_body_results.append(body_result)
+
+    # 모든 객체를 한 번에 업데이트
+    BodyResult.objects.bulk_update(updated_body_results, ['image_front_url', 'image_side_url'])
+
     # Serialize the BodyResult objects
     serializer = BodyResultSerializer(body_results, many=True)
 
@@ -619,7 +711,8 @@ def get_body_result(request):
                             }),
         })  ),
         400: 'Bad Request; kiosk_id is not provided in the request body',
-    }
+    },
+    tags=['kiosk']
 )
 @api_view(['POST'])
 def login_kiosk(request):
@@ -654,7 +747,8 @@ def login_kiosk(request):
         400: 'Bad Request; (session_key | phone_number | password) is not provided in the request body',
         401: 'Unauthorized; incorrect user or password',
         404: 'Not Found; session_key is not found',
-    }
+    },
+    tags=['kiosk']
 )
 @api_view(['POST'])
 def login_kiosk_id(request):
@@ -705,7 +799,8 @@ def login_kiosk_id(request):
         400: 'Bad Request; session_key is not provided in the request body',
         401: 'Unauthorized; incorrect user or password',
         404: 'Not Found; session_key is not found',
-    }
+    },
+    tags=['kiosk']
 )
 @api_view(['GET'])
 def get_userinfo_session(request):
@@ -738,7 +833,8 @@ def get_userinfo_session(request):
         200: 'Success',
         400: 'Bad Request; (session_key | phone_number | password) is not provided in the request body',
         404: 'Not Found; session_key is not found',
-    }
+    },
+    tags=['kiosk']
 )
 @api_view(['POST'])
 def end_session(request):
