@@ -177,7 +177,8 @@ def get_code(request):
     # Serialize the CodeInfo objects
     serializer = CodeInfoSerializer(results, many=True)
 
-    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+    data = serializer.data
+    return Response({'data': data}, status=status.HTTP_200_OK)
 
 # 보행 결과 리스트 반환
 # @param String? id : GaitResult의 id
@@ -191,7 +192,7 @@ def get_gait_result(request):
     if id is not None:
         current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
         if not current_result:
-            return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "gait_result_not_found"},)
 
         gait_results = GaitResult.objects.filter(
             user_id=user_id,
@@ -216,14 +217,20 @@ def get_body_result(request):
     body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
     body_id = request.query_params.get('id', None)
     if body_id is not None:
-        body_results = body_results.filter(id=body_id)
+        current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
+        if not current_result:
+            return Response({"message": "body_result_not_found"},)
 
-    if not body_results.exists():
-        return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
-    
+        body_results = BodyResult.objects.filter(
+            user_id=user_id,
+            created_dt__lte=current_result.created_dt
+        ).order_by('-created_dt')[:7]
+    else:
+        if not body_results.exists():
+            return Response({"message": "body_result_not_found"}, status=status.HTTP_200_OK)
+
     # 수정된 body_results를 리스트로 저장
     updated_body_results = []
-
     for body_result in body_results:
         created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
         # Presigned URL 생성 (일정 시간 동안)
