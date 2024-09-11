@@ -111,7 +111,7 @@ class GaitResult(models.Model):
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"GaitResult for {self.student_name} at {self.created_dt}"
+        return f"GaitResult for {self.user.username} at {self.created_dt}"
 
 class BodyResult(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
@@ -135,4 +135,4 @@ class BodyResult(models.Model):
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"BodyResult for {self.student_name} at {self.created_dt}"
+        return f"BodyResult for {self.user.username} at {self.created_dt}"

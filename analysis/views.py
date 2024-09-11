@@ -14,7 +14,7 @@ from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
-from .helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3
+from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
 from .models import BodyResult, CodeInfo, GaitResult, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
@@ -24,6 +24,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from datetime import datetime as dt
 from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 
 def home(request):
     if request.user.is_authenticated:
@@ -50,14 +51,14 @@ def register_student(request):
                 
                 # Find or create the UserInfo
                 user_info, created = UserInfo.objects.update_or_create(
-                    username=row['전화번호'].strip().replace('-', ''),
+                    phone_number=extract_digits(row['전화번호'].strip().replace('-', '')),
                     defaults=dict(
                         school=school_info,
                         student_grade=row['학년'],
                         student_class=row['반'],
                         student_number=row['번호'],
                         student_name=row['이름'].strip().replace(' ', ''),
-                        phone_number=row['전화번호'].strip().replace('-', ''),
+                        username=extract_digits(row['전화번호'].strip().replace('-', '')),
                         password=make_password(os.environ['DEFAULT_PASSWORD'])
                     ),
                 )
@@ -96,176 +97,140 @@ def report(request):
 from django.shortcuts import render, get_object_or_404
 from .models import UserInfo
 
+import pytz
+
+kst = pytz.timezone('Asia/Seoul')
+
 # Example data structure with recent 3 months' trend data
 # TODO: fetch from DB
-report_items = [
-    {
-        'title': '거북목',
-        'alias': 'forward_head_angle',
-        'description_label': '기울어짐 각도',
-        'description_value': '앞쪽으로 0.02°',
-        'status': '양호',
-        'normal_range': [45.00, 50.00],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [28.96, '2024-06-01'],
-                [47.50, '2024-07-01'],
-                [46.00, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '거북목이란?': '거북목은 목이 앞으로 기울어진 상태로, 장시간 컴퓨터 작업이나 스마트폰 사용으로 인해 발생할 수 있습니다.',
-            '거북목의 위험성': '거북목은 목과 어깨에 불편함을 주며, 장기적으로는 척추에 문제를 일으킬 수 있습니다.',
-            '거북목 개선 방법': '자주 스트레칭하고 올바른 자세를 유지하는 것이 중요합니다. 정기적인 운동과 물리치료가 도움이 될 수 있습니다.',
-            '권장 계획': '하루 30분 이상의 스트레칭을 권장하며, 자세 교정과 운동을 병행하는 것이 좋습니다.'
-        }
-    },
-    {
-        'title': '척추 불균형',
-        'alias': 'spinal_imbalance',
-        'description_label': '척추 기울기',
-        'description_value': '상부 척추: 오른쪽으로 20%, 하부 척추: 왼쪽으로 15%',
-        'status': '주의',
-        'normal_range': [15.00, 25.00],  # Example range
-        'trend': {
-                '지난 3개월': [(3.2, 3.4, '2023-06-01'), (3.4, 3.5, '2023-07-01'), (3.1, 3.8, '2023-08-01')],
-                'normal_range': [3.0, 4.0]
-        },
-        'sections': {
-            '척추 불균형이란?': '척추 불균형은 척추가 정상 위치에서 벗어나 한쪽으로 기울어지는 상태를 말합니다.',
-            '척추 불균형의 위험성': '척추 불균형은 통증을 유발하며, 장기적으로 자세 문제나 신경 압박이 발생할 수 있습니다.',
-            '척추 불균형 개선 방법': '물리치료와 자세 교정 운동이 도움이 될 수 있으며, 정기적인 검진이 필요합니다.',
-            '권장 계획': '매일 스트레칭과 척추 교정 운동을 권장합니다.'
-        }
-    },
-    {
-        'title': '안면 불균형',
-        'alias': 'facial_imbalance',
-        'description_label': '기울어짐 각도',
-        'description_value': '왼쪽으로 0.02°',
-        'status': '양호',
-        'normal_range': [0.00, 0.05],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [0.02, '2024-06-01'],
-                [0.01, '2024-07-01'],
-                [0.03, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '안면 불균형이란?': '안면 불균형은 얼굴이 비대칭으로 기울어지는 상태를 말합니다.',
-            '안면 불균형의 위험성': '안면 불균형은 심미적 문제를 유발할 수 있으며, 얼굴의 기능에도 영향을 미칠 수 있습니다.',
-            '안면 불균형 개선 방법': '안면 운동과 균형 잡힌 식사가 도움이 될 수 있습니다.',
-            '권장 계획': '매일 얼굴 운동과 정기적인 검사 권장'
-        }
-    },
-    {
-        'title': '어깨 불균형',
-        'alias': 'shoulder_imbalance',
-        'description_label': '기울어짐 각도',
-        'description_value': '오른쪽으로 0.82°',
-        'status': '양호',
-        'normal_range': [0.00, 1.00],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [0.80, '2024-06-01'],
-                [0.85, '2024-07-01'],
-                [0.82, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '어깨 불균형이란?': '어깨 불균형은 양쪽 어깨가 높이나 위치에서 차이를 보이는 상태를 말합니다.',
-            '어깨 불균형의 위험성': '어깨 불균형은 근육 불균형을 초래할 수 있으며, 장기적으로 자세 문제를 유발할 수 있습니다.',
-            '어깨 불균형 개선 방법': '정기적인 스트레칭과 근력 운동이 도움이 될 수 있습니다.',
-            '권장 계획': '매일 어깨 스트레칭과 강화 운동을 권장합니다.'
-        }
-    },
-    {
-        'title': '골반 불균형',
-        'alias': 'pelvic_imbalance',
-        'description_label': '기울어짐 각도',
-        'description_value': '오른쪽으로 0.82°',
-        'status': '양호',
-        'normal_range': [0.00, 1.00],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [0.80, '2024-06-01'],
-                [0.85, '2024-07-01'],
-                [0.82, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '골반 불균형이란?': '골반 불균형은 골반이 한쪽으로 기울어지는 상태를 말합니다.',
-            '골반 불균형의 위험성': '골반 불균형은 허리 통증을 유발할 수 있으며, 장기적으로 자세 문제를 일으킬 수 있습니다.',
-            '골반 불균형 개선 방법': '골반 교정 운동과 스트레칭이 도움이 될 수 있습니다.',
-            '권장 계획': '매일 골반 교정 운동과 스트레칭을 권장합니다.'
-        }
-    },
-    {
-        'title': '다리 길이 불균형',
-        'alias': 'leg_length_discrepancy',
-        'description_label': '좌우 다리 길이 차이',
-        'description_value': '왼쪽이 1% 짧음',
-        'status': '양호',
-        'normal_range': [0.00, 1.00],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [1.00, '2024-06-01'],
-                [0.98, '2024-07-01'],
-                [0.99, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '다리 길이 불균형이란?': '다리 길이 불균형은 한쪽 다리가 다른 쪽보다 길거나 짧은 상태를 말합니다.',
-            '다리 길이 불균형의 위험성': '다리 길이 불균형은 보행 문제를 유발할 수 있으며, 장기적으로 자세 문제를 일으킬 수 있습니다.',
-            '다리 길이 불균형 개선 방법': '다리 길이 교정 운동과 맞춤형 깔창 사용이 도움이 될 수 있습니다.',
-            '권장 계획': '매일 교정 운동과 정기적인 검사 권장'
-        }
-    },
-    {
-        'title': 'O/X 다리',
-        'alias': 'o_x_legs',
-        'description_label': '기울어짐 각도',
-        'description_value': '좌: 173.75°, 우: 177.84°',
-        'status': '양호',
-        'normal_range': [170.00, 180.00],  # Example range
-        'trend': {
-                '지난 3개월': [(1.2, 2.4, '2023-06-01'), (1.4, 2.5, '2023-07-01'), (1.1, 2.3, '2023-08-01')],
-                'normal_range': [1.0, 2.5]
-            },
-        'sections': {
-            'O/X 다리란?': 'O/X 다리는 다리가 서로 바깥쪽 또는 안쪽으로 기울어지는 상태를 말합니다.',
-            'O/X 다리의 위험성': 'O/X 다리는 보행 문제를 유발할 수 있으며, 장기적으로 자세 문제를 일으킬 수 있습니다.',
-            'O/X 다리 개선 방법': '교정 운동과 물리치료가 도움이 될 수 있습니다.',
-            '권장 계획': '매일 교정 운동과 정기적인 검사 권장'
-        }
-    },
-    {
-        'title': '무릎 기울기',
-        'alias': 'knee_angle',
-        'description_label': '휘어짐 각도',
-        'description_value': '178°',
-        'status': '양호',
-        'normal_range': [175.00, 180.00],  # Example range
-        'trend': {
-            '지난 3개월': [
-                [177.50, '2024-06-01'],
-                [178.00, '2024-07-01'],
-                [178.25, '2024-08-01']
-            ]
-        },
-        'sections': {
-            '무릎 기울기란?': '무릎 기울기는 무릎이 휘어지는 각도를 말합니다.',
-            '무릎 기울기의 위험성': '무릎 기울기는 관절에 압박을 유발할 수 있으며, 장기적으로 통증을 유발할 수 있습니다.',
-            '무릎 기울기 개선 방법': '무릎 스트레칭과 강화 운동이 도움이 될 수 있습니다.',
-            '권장 계획': '매일 무릎 스트레칭과 강화 운동을 권장합니다.'
-        }
-    }
-]
 
 @login_required
 def body_report(request, id):
-    print(request.user)
+    max_count = 20
+    body_info_queryset = CodeInfo.objects.filter(group_id='01')
+    
+    # Get the current date and time
+    now = timezone.now()
+
+    # Calculate the date 3 months ago
+    three_months_ago = now - relativedelta(months=3)
+
+    # Filter records from the last 3 months
+    body_result_queryset = BodyResult.objects.filter(
+        user_id=id, 
+        created_dt__gte=three_months_ago
+    ).order_by('-created_dt')[:int(max_count)]
+    if len(body_result_queryset) == 0:
+        return render(request, 'no_result.html', status=404)
+    body_result_latest = body_result_queryset[0]
+
+    report_items = []
+    for body_info in body_info_queryset:
+        trend_data = []
+        is_paired = False
+        for body_result in body_result_queryset:
+            body_code_id_ = body_info.code_id
+            alias = body_info.code_id
+            if 'leg_alignment' in body_code_id_ or 'back_knee' in body_code_id_  or 'scoliosis' in body_code_id_:
+                is_paired = True
+                if 'scoliosis' in body_code_id_:
+                    code_parts = body_code_id_.split('_')
+                    pair_names = ['shoulder', 'hip']
+                    paired_body_code_id_list = [ '_'.join([code_parts[0], pair, code_parts[2]]) for pair in pair_names ]
+                    
+                else:
+                    pair_names = ['left', 'right']
+                    paired_body_code_id_list = [ f'{pair}_' + '_'.join(body_code_id_.split('_')[1:]) for pair in pair_names ]
+
+                if 'leg_alignment' in body_code_id_:
+                    alias = 'o_x_legs'
+                if 'back_knee' in body_code_id_:
+                    alias = 'knee_angle'
+                if 'scoliosis' in body_code_id_:
+                    alias = 'spinal_imbalance'
+                
+                trend_samples = [getattr(body_result, paired_body_code_id_list[0]),
+                                getattr(body_result, paired_body_code_id_list[1]),
+                                body_result.created_dt.astimezone(kst).strftime('%Y-%m-%d %H:%M:%S')]
+            else:
+                trend_samples = [getattr(body_result, body_code_id_), body_result.created_dt.astimezone(kst).strftime('%Y-%m-%d %H:%M:%S')]
+            trend_data.append(trend_samples)
+
+        if is_paired:
+            result_val1, result_val2, *_ = trend_data[-1]
+            result_val1, result_val2 = round(result_val1, 2), round(result_val2, 2)
+            description_list = []
+            unit_name = body_info.unit_name
+            normal_range = [body_info.normal_min_value, body_info.normal_max_value]
+            for i, val in enumerate([result_val1, result_val2]):
+                if alias == 'o_x_legs':
+                    title = '흰 다리'
+                    metric = '각도 [°]'
+                    pair_name = '왼쪽' if i == 0 else '오른쪽'
+                    if normal_range[0] < val < normal_range[1]:
+                        description = '양호'
+                    else:
+                        description = 'O 다리 의심' if result < 180 else 'X 다리 의심'
+                if alias == 'knee_angle':
+                    title = '무릎 기울기'
+                    metric = '각도 [°]'
+                    pair_name = '왼쪽' if i == 0 else '오른쪽'
+                    if normal_range[0] < val < normal_range[1]:
+                        description = '양호'
+                    else:
+                        description = '반장슬 의심'
+                if alias == 'spinal_imbalance':
+                    title = '척추 불균형'
+                    metric = '척추 기준 좌우 비율 불균형 [%]'
+                    pair_name = '척추-어깨' if i == 0 else '척추-골반'
+                    if normal_range[0] < val < normal_range[1]:
+                        description = '양호'
+                    else:
+                        description = '불균형 (오른쪽으로 치우침)' if val < 0 else '불균형 (왼쪽으로 치우침)'
+
+                description_list.append(f'{pair_name} : ' + description)
+
+            if all([ i['title'] != title for i in report_items ]):
+                report_items.append({
+                    'title': title,
+                    'alias': alias,
+                    'result': f'{abs(result_val1)}{unit_name} / {abs(result_val2)}{unit_name}',
+                    'description' : description_list,
+                    'description_list': True,
+                    'metric': metric,
+                    'normal_range': [body_info.normal_min_value, body_info.normal_max_value],
+                    'value_range': [body_info.min_value, body_info.max_value],
+                    'trend': trend_data,
+                    'sections': { getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in ['outline', 'risk', 'improve', 'recommended']  }
+                })
+        else:
+            result = round(getattr(body_result_latest, body_info.code_id), 2)
+            unit_name = body_info.unit_name
+            normal_range = [body_info.normal_min_value, body_info.normal_max_value]
+            if 'angle' in alias:
+                description = '왼쪽으로' if result < 0 else '오른쪽으로'
+                metric = '각도 [°]'
+            
+            if alias == 'forward_head_angle':
+                description = '양호' if normal_range[0] < result < normal_range[1] else '거북목 진행형'
+
+            if alias == 'leg_length_ratio':
+                description = '왼쪽 더 짧음' if result < 0 else '오른쪽이 더 짧음'
+                metric = '다리 길이 차이 [%]'
+
+            report_items.append({
+                'title': body_info.code_name,
+                'alias': alias,
+                'result': f'{abs(result)}{unit_name}',
+                'description' : description,
+                'description_list': False,
+                'metric': metric,
+                'normal_range': normal_range,
+                'value_range': [body_info.min_value, body_info.max_value],
+                'trend': trend_data,
+                'sections': { getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in ['outline', 'risk', 'improve', 'recommended']  }
+            })
+
     student = get_object_or_404(UserInfo, id=id)
 
     if not report_items:
@@ -275,13 +240,14 @@ def body_report(request, id):
     trend_data_dict = {}
     for item in report_items:
         alias = item['alias']
-        trend_data = item['trend'].get('지난 3개월', [])
+        trend_data = item['trend']
         
-        if alias in ['spinal_imbalance', 'o_x_legs']:
+        if alias in ['spinal_imbalance', 'o_x_legs', 'knee_angle']:
             trend_data_dict[alias] = {
                 'val1': [value[0] for value in trend_data],  # 왼쪽 또는 상부
                 'val2': [value[1] for value in trend_data],  # 오른쪽 또는 하부
-                'dates': [value[2] for value in trend_data]  # 날짜 (세 번째 요소)
+                'dates': [value[2] for value in trend_data],  # 날짜 (세 번째 요소)
+                'part': ['어깨', '골반'] if alias == 'spinal_imbalance' else ['왼쪽', '오른쪽']
             }
         else:
             trend_data_dict[alias] = {
@@ -289,10 +255,14 @@ def body_report(request, id):
                 'dates': [value[1] for value in trend_data]
             }
 
+    created_dt = body_result_latest.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+
     context = {
         'student': student,
         'report_items': report_items,
         'trend_data_dict': trend_data_dict,
+        'image_front_url': generate_presigned_url(file_keys=['front', created_dt]),
+        'image_side_url': generate_presigned_url(file_keys=['side', created_dt]),
     }
 
     return render(request, 'body_report.html', context)
@@ -612,6 +582,7 @@ def create_body_result(request):
         openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
         openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
         openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('return_urls', openapi.IN_QUERY, description="If true return image urls", type=openapi.TYPE_BOOLEAN, required=False, default=True),
     ],
     responses={
         200: BodyResultSerializer(many=True),
@@ -665,18 +636,25 @@ def get_body_result(request):
     if count is not None:
         body_results = body_results.all()[:int(count)]
 
+    return_urls = request.query_params.get('return_urls', 'true')
+    return_urls = eval(return_urls.capitalize())
+
     # 수정된 body_results를 리스트로 저장
     updated_body_results = []
 
     for body_result in body_results:
         created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
-        # Presigned URL 생성 (일정 시간 동안)
-        body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
-        body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
-
-        if requests.get(body_result.image_front_url).status_code in [400, 404]:
+        if return_urls:
+            # Presigned URL 생성 (일정 시간 동안)
+            body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
+            body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
+        else:
             body_result.image_front_url = None
-        if requests.get(body_result.image_side_url).status_code in [400, 404]:
+            body_result.image_side_url = None
+
+        if body_result.image_front_url is not None and requests.get(body_result.image_front_url).status_code in [400, 404]:
+            body_result.image_front_url = None
+        if body_result.image_side_url is not None and requests.get(body_result.image_side_url).status_code in [400, 404]:
             body_result.image_side_url = None
 
         updated_body_results.append(body_result)
@@ -771,6 +749,8 @@ def login_kiosk_id(request):
         user_info = UserInfo.objects.get(phone_number=phone_number)
     except UserInfo.DoesNotExist:
         return Response({'data': {"message": "user_not_found", 'status': 401}})
+    
+    print(user_info, user_info.phone_number)
 
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import base64
 from io import BytesIO
+import re
 from PIL import Image
 import boto3
 from django.conf import settings
@@ -138,3 +139,5 @@ def fetch_recent_mails(email_host, email_user, email_password, minutes=1, allowe
     return fetched_data
 
 
+def extract_digits(text):
+    return re.search(r'\d+', text).group()
