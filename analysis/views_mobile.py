@@ -192,7 +192,7 @@ def get_gait_result(request):
     if id is not None:
         current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
         if not current_result:
-            return Response({"message": "gait_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "gait_result_not_found"},)
 
         gait_results = GaitResult.objects.filter(
             user_id=user_id,
@@ -219,7 +219,7 @@ def get_body_result(request):
     if body_id is not None:
         current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
         if not current_result:
-            return Response({"message": "body_result_not_found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "body_result_not_found"},)
 
         body_results = BodyResult.objects.filter(
             user_id=user_id,
