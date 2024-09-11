@@ -750,8 +750,6 @@ def login_kiosk_id(request):
     except UserInfo.DoesNotExist:
         return Response({'data': {"message": "user_not_found", 'status': 401}})
     
-    print(user_info, user_info.phone_number)
-
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
     else:
