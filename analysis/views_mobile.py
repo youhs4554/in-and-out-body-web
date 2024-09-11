@@ -177,7 +177,8 @@ def get_code(request):
     # Serialize the CodeInfo objects
     serializer = CodeInfoSerializer(results, many=True)
 
-    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+    data = serializer.data
+    return Response({'data': data}, status=status.HTTP_200_OK)
 
 # 보행 결과 리스트 반환
 # @param String? id : GaitResult의 id
