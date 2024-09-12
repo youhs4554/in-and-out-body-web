@@ -65,7 +65,7 @@
                 {% endfor %}
             </div>
         </div>
-        <div class="caution-text"">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+        <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
             건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
 
         <!-- Divider -->
@@ -92,11 +92,13 @@
                 <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
             </div>
 
-            <!-- Line Chart -->
-            <div class="mb-6">
-                <div class="sub-title">변화 추이 - {{ item.title }}</div>
-                <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
-            </div>
+            {% if trend|length > 1 %}
+                <!-- Line Chart -->
+                <div class="mb-6">
+                    <div class="sub-title">변화 추이 - {{ item.title }}</div>
+                    <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
+                </div>
+            {% endif %}
 
             <!-- Section Contents (detailed explanation) -->
             <div class="mb-6">
