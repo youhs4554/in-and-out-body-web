@@ -557,6 +557,33 @@ a.btn-link button i {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* 텍스트 박스에 그림자 */
 }
 
+.image-wrapper {
+    position: relative;
+}
+
+.image-wrapper img {
+    display: block;
+}
+
+.overlay-left, .overlay-right {
+    position: absolute;
+    bottom: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    padding: 5px;
+}
+
+.overlay-left {
+    left: 10px;
+}
+
+.overlay-right {
+    right: 10px;
+}
+
+
 .caution-text {
     font-family: 'Noto Sans KR';
     font-style: normal;
@@ -571,7 +598,7 @@ a.btn-link button i {
 
 .summary-sub-title {
     font-weight: bold;
-    font-size: 1.2em;
+    font-size: 1.5rem;
     position: relative;
 }
 
@@ -622,6 +649,7 @@ a.btn-link button i {
 .summary-title {
     font-weight: bold;
     width: 30%;
+    font-size: 1.2rem;
     text-align: left;
 }
 

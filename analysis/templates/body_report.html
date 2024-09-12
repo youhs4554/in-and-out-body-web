@@ -23,13 +23,20 @@
         <div class="image-container">
             <div class="image-block">
                 <p class="image-title">정면 이미지</p>
-                <img src="{{ image_front_url }}" alt="Front Image">
+                <div class="image-wrapper">
+                    <img src="{{ image_front_url }}" alt="Front Image">
+                    <div class="overlay-right">왼쪽</div>
+                    <div class="overlay-left">오른쪽</div>
+                </div>
             </div>
             <div class="image-block">
                 <p class="image-title">측면 이미지</p>
-                <img src="{{ image_side_url }}" alt="Side Image">
+                <div class="image-wrapper">
+                    <img src="{{ image_side_url }}" alt="Side Image">
+                </div>
             </div>
         </div>
+
 
         <!-- 종합 평가 -->
         <div class="mb-6">
@@ -46,7 +53,7 @@
                         <div class="summary-description">
                             {% if item.description_list %}
                                 <!-- 배열일 경우, / 로 연결 -->
-                                <p>{{ item.description|join:" / " }}</p> 
+                                <p>{{ item.summary|join:" / " }}</p> 
                             {% else %}
                                 {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
                             {% endif %}
@@ -155,14 +162,14 @@
                                 data: trendDataDict['{{ item.alias }}'].val1,
                                 borderColor: 'rgba(255, 99, 132, 1)',
                                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                borderWidth: 5,
+                                borderWidth: 3,
                             },
                             {
                                 label: trendDataDict['{{ item.alias }}'].part[1],
                                 data: trendDataDict['{{ item.alias }}'].val2,
                                 borderColor: 'rgba(54, 162, 235, 1)',
                                 backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                borderWidth: 5,
+                                borderWidth: 3,
                             },
                             {
                                 label: '정상 범위', // Add this label to the legend
@@ -219,7 +226,7 @@
                                 data: trendDataDict['{{ item.alias }}'].values,
                                 borderColor: 'rgba(255, 99, 132, 1)',
                                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                borderWidth: 5,
+                                borderWidth: 3,
                             },
                             {
                                 label: '정상 범위', // Add this label to the legend
