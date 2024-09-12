@@ -184,7 +184,7 @@ TIME_ZONE = 'Asia/Seoul'  # Set the global timezone to Korean Standard Time
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
