@@ -11,205 +11,11 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-        }
-        .report-card {
-            position: relative;
-            width: 850px;
-            margin: 20px auto;
-            background: linear-gradient(90deg, #62CAE4 0%, #9ECA94 49.67%, #FFCF00 100%);
-            backdrop-filter: blur(10px);
-            border-radius: 30px;
-            filter: drop-shadow(1px 9px 22.7px rgba(0, 0, 0, 0.15));
-            box-sizing: border-box;
-            padding: 16px;
-            display: flex;
-            align-items: center; /* Align items vertically centered */
-            justify-content: space-between; /* Space out content horizontally */
-        }
-
-        .report-card .left-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* Center content vertically within the left section */
-            max-width: calc(100% - 240px); /* Adjust width to leave space for the icon */
-        }
-
-        .report-card .title,
-        .report-card .description-label,
-        .report-card .description-value,
-        .report-card .result-value {
-            text-align: left; /* Align text to the left */
-            color: #FFF8F8;
-            text-shadow: 0px 2px 5.3px rgba(0, 0, 0, 0.25);
-        }
-
-        .report-card .title {
-            font-family: 'Noto Sans KR';
-            font-style: normal;
-            font-weight: 500;
-            font-size: 90px;
-            line-height: 203%;
-            /* identical to box height, or 183px */
-            display: flex;
-            align-items: center;
-        }
-
-        .report-card .result-value {
-            font-family: 'Noto Sans KR';
-            font-style: normal;
-            font-weight: 700;
-            font-size: 50px;
-            line-height: 203%;
-            /* identical to box height, or 130px */
-            display: flex;
-            align-items: center;
-        }
-
-        .report-card .description-label {
-            font-family: 'Noto Sans KR';
-            font-style: normal;
-            font-weight: 400;
-            font-size: 30px;
-            line-height: 203%;
-            display: flex;
-            align-items: center;
-            text-align: center;
-        }
-
-        .report-card .description-value {
-            font-family: 'Noto Sans KR', sans-serif;
-            font-size: 32px;
-        }
-
-        .report-card img {
-            width: 220px;
-            height: 220px;
-            left: 665px;
-            top: 326px;
-        }
-
-        .main-title {
-            font-family: 'Noto Sans KR', sans-serif;
-            font-style: normal;
-            font-weight: 700;
-            font-size: 64px;
-            line-height: 203%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            letter-spacing: 0.3em;
-            background: linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-fill-color: transparent;
-        }
-        
-        .sub-title {
-            font-family: 'Noto Sans KR', sans-serif;
-            font-style: normal;
-            font-weight: 700;
-            font-size: 40px;
-            line-height: 203%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            letter-spacing: 0.3em;
-            background: linear-gradient(0deg, #606060, #606060), linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-fill-color: transparent;
-        }
-
-        .subsub-title {
-            font-family: 'Noto Sans KR';
-            font-style: normal;
-            font-weight: 400;
-            font-size: 15px;
-            line-height: 203%;
-            /* or 30px */
-            display: flex;
-            align-items: center;
-            text-align: center;
-            letter-spacing: 0.3em;
-            background: linear-gradient(0deg, #606060, #606060), linear-gradient(90deg, #62CAE4 0%, #FFCF00 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-fill-color: transparent;
-        }
-
-        .divider {
-            height: 4px;
-            background-color: #e2e8f0;
-            margin: 40px 0;
-            border-radius: 2px;
-        }
-
-        .image-container {
-            display: flex;
-            justify-content: space-between;  /* 이미지를 좌우로 배치 */
-            align-items: center;             /* 텍스트와 이미지를 중앙에 정렬 */
-            margin: 20px;
-        }
-
-        .image-block {
-            text-align: center;
-            width: 45%;  /* 각 이미지 블록의 너비를 설정 */
-            margin: 10px;
-        }
-
-        .image-block img {
-            max-width: 100%;  /* 이미지가 블록 너비를 넘지 않도록 설정 */
-            height: auto;
-            border-radius: 8px;  /* 이미지에 둥근 모서리 추가 */
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);  /* 이미지에 그림자 추가 */
-        }
-
-        .image-title {
-            font-size: 1.5em;   /* 텍스트 크기 */
-            color: #333;        /* 텍스트 색상 */
-            font-size: 30px;
-            font-weight: bold;  /* 텍스트 굵기 */
-            margin-bottom: 10px;  /* 텍스트와 이미지 사이 여백 */
-            text-transform: uppercase;  /* 텍스트 대문자로 변환 */
-            letter-spacing: 1px;  /* 글자 간격 조정 */
-        }
-
-        .image-container p {
-            margin: 0;  /* 텍스트 상단과 하단 여백 제거 */
-            padding: 5px;
-        }
-
-        .image-block p {
-            background-color: #f5f5f5;   /* 텍스트 배경 색상 */
-            padding: 5px 10px;           /* 텍스트 패딩 */
-            border-radius: 5px;          /* 텍스트 배경에 둥근 모서리 */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* 텍스트 박스에 그림자 */
-        }
-
-        .caution-text {
-            font-family: 'Noto Sans KR';
-            font-style: normal;
-            font-weight: 500;
-            font-size: 20px;
-            line-height: 29px;
-
-            color: #EA5942;
-
-
-        }
-
-    </style>
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 style="text-align: end;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
         <div class="main-title">체형 분석 결과</div>
 
         <!-- Result Image -->
@@ -222,12 +28,6 @@
                 <p class="image-title">측면 이미지</p>
                 <img src="{{ image_side_url }}" alt="Side Image">
             </div>
-        </div>
-
-        <!-- 종합 평가 -->
-        <div class="mb-6">
-            <div class="sub-title">나의 체형 종합 평가</div>
-            <canvas id="chart_radar" class="w-full h-64"></canvas>
         </div>
 
         <!-- Divider -->
@@ -325,7 +125,6 @@
                                 borderColor: 'rgba(255, 99, 132, 1)',
                                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
                                 borderWidth: 5,
-                                fill: true,
                             },
                             {
                                 label: trendDataDict['{{ item.alias }}'].part[1],
@@ -333,7 +132,6 @@
                                 borderColor: 'rgba(54, 162, 235, 1)',
                                 backgroundColor: 'rgba(54, 162, 235, 0.2)',
                                 borderWidth: 5,
-                                fill: true,
                             },
                             {
                                 label: '정상 범위', // Add this label to the legend
@@ -391,7 +189,6 @@
                                 borderColor: 'rgba(255, 99, 132, 1)',
                                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
                                 borderWidth: 5,
-                                fill: true,
                             },
                             {
                                 label: '정상 범위', // Add this label to the legend

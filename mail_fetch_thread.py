@@ -58,9 +58,20 @@ def fetch_recent_mails(email_host, email_user, email_password, minutes=1):
                 sender_domain = sender.split('@')[-1].strip()
                 sender = sender.replace('@' + sender_domain, '')
 
+                # **Extract the body of the email (instead of the subject)**
+                body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        # Check if the part is text/plain or text/html
+                        if part.get_content_type() == "text/plain" and not part.get('Content-Disposition'):
+                            body = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8')
+                            break
+                else:
+                    body = msg.get_payload(decode=True).decode(msg.get_content_charset() or 'utf-8')
+
                 # Check if the sender's domain is in the allowed list
                 # Extract the subject of the email
-                mobile_uid = str(msg['Subject'])
+                mobile_uid = body.split('\n')[0].strip()
                 phone_number = str(sender.split(' ')[0])
                 fetched_data.append([mobile_uid, phone_number])
 

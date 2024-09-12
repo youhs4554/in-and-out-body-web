@@ -24,6 +24,7 @@ class CodeInfo(models.Model):
     title_improve = models.CharField(max_length=100, null=True)
     title_recommended = models.CharField(max_length=100, null=True)
     unit_name = models.CharField(max_length=20, null=True)
+    seq_no = models.IntegerField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class AuthInfo(models.Model):
