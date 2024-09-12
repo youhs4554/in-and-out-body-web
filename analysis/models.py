@@ -56,6 +56,9 @@ class UserInfo(AbstractUser):
     student_class = models.IntegerField(null=True, blank=True)
     student_number = models.IntegerField(null=True, blank=True)
     student_name = models.CharField(max_length=100, null=True, blank=True)
+    dob = models.CharField(max_length=8, null=True, blank=True)
+    gender = models.CharField(max_length=1, null=True)
+    height = models.FloatField(null=True, blank=True)
 
     year = models.IntegerField(null=True, blank=True)
     created_dt = models.DateTimeField(auto_now_add=True)
