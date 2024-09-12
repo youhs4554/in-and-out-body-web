@@ -5,8 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Base Template</title>
+    <title>웰니스 바디 스캐너</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}">
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}" >
     <link href="{% static 'fontawesomefree/css/fontawesome.css' %}" rel="stylesheet" type="text/css">
     <link href="{% static 'fontawesomefree/css/brands.css' %}" rel="stylesheet" type="text/css">
     <link href="{% static 'fontawesomefree/css/solid.css' %}" rel="stylesheet" type="text/css">
@@ -14,7 +15,7 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2>In and Out Body</h2>
+            <h2>웰니스 바디 스캐너</h2>
             <ul>
                 <li><a href="{% url 'register_student' %}"><i class="fas fa-school-flag menu-icon"></i>&nbsp 학생 정보 등록</a></li>
                 <li><a href="{% url 'report' %}"><i class="fas fa-file-alt menu-icon"></i>&nbsp 검사 결과 조회</a></li>

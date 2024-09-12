@@ -78,19 +78,47 @@ def register_student(request):
 @login_required
 def report(request):
     groups = UserInfo.objects.values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
-    groups = [ f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None)) ] # Note : 학년, 반 정보 없는 superuser는 그룹에 포함안됨
-    
+    groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
+
+    error_message = None
+    user_results = []
+
     if request.method == 'POST':
         selected_group = request.POST.get('group')
 
-        # 정규 표현식을 사용하여 학년과 반 추출
+        # 정규 표현식으로 학년과 반 추출
         match = re.search(r"(\d+)학년 (\d+)반", selected_group)
-        users = UserInfo.objects.filter(student_grade=match.group(1), 
-                                        student_class=match.group(2))
+        if match:
+            users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2))
+
+            # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
+            for user in users:
+                # 검사 결과 유효성 체크 로직
+                body_result_queryset = BodyResult.objects.filter(
+                    user_id=user.id,
+                    image_front_url__isnull=False,
+                    image_side_url__isnull=False,
+                )
+
+                analysis_valid = (len(body_result_queryset) > 0)
+
+                # user와 검사 결과 여부를 딕셔너리 형태로 추가
+                user_results.append({
+                    'user': user,
+                    'analysis_valid': analysis_valid
+                })
+        else:
+            error_message = '선택한 그룹이 올바르지 않습니다. 다시 선택해주세요.'
+            users = UserInfo.objects.none()
     else:
-        users = UserInfo.objects.none()
         selected_group = None
-    return render(request, 'report.html', {'groups': groups, 'users': users, 'selected_group': selected_group})
+
+    return render(request, 'report.html', {
+        'groups': groups,
+        'user_results': user_results,
+        'selected_group': selected_group,
+        'error_message': error_message
+    })
 
 # Example report items
 # TODO: get from actual DB
@@ -163,43 +191,69 @@ def body_report(request, id):
 
         if is_paired:
             result_val1, result_val2, *_ = trend_data[-1]
-            result_val1, result_val2 = round(result_val1, 2), round(result_val2, 2)
+            result1 = None
+            if result_val1 is not None:
+                result1 = round(result_val1, 2)
+            result2 = None
+            if result_val2 is not None:
+                result2 = round(result_val2, 2)
+
             description_list = []
             unit_name = body_info.unit_name
             normal_range = [body_info.normal_min_value, body_info.normal_max_value]
-            for i, val in enumerate([result_val1, result_val2]):
+            for i, val in enumerate([result1, result2]):
                 if alias == 'o_x_legs':
                     title = '다리 휘어짐'
                     metric = '각도 [°]'
                     pair_name = '왼쪽' if i == 0 else '오른쪽'
-                    if normal_range[0] < val < normal_range[1]:
-                        description = '양호'
+                    if val:
+                        if normal_range[0] < val < normal_range[1]:
+                            description = '양호'
+                        else:
+                            description = 'O 다리 의심' if val < 180 else 'X 다리 의심'
                     else:
-                        description = 'O 다리 의심' if result < 180 else 'X 다리 의심'
+                        description = "측정값 없음"
                 if alias == 'knee_angle':
                     title = '무릎 기울기'
                     metric = '각도 [°]'
                     pair_name = '왼쪽' if i == 0 else '오른쪽'
-                    if normal_range[0] < val < normal_range[1]:
-                        description = '양호'
+                    if val:
+                        if normal_range[0] < val < normal_range[1]:
+                            description = '양호'
+                        else:
+                            description = '반장슬 의심'
                     else:
-                        description = '반장슬 의심'
+                        description = "측정값 없음"
                 if alias == 'spinal_imbalance':
                     title = '척추 불균형'
                     metric = '척추 기준 좌우 비율 불균형 [%]'
                     pair_name = '척추-어깨' if i == 0 else '척추-골반'
-                    if normal_range[0] < val < normal_range[1]:
-                        description = '양호'
+                    if val:
+                        if normal_range[0] < val < normal_range[1]:
+                            description = '양호'
+                        else:
+                            description = '불균형 (오른쪽으로 치우침)' if val < 0 else '불균형 (왼쪽으로 치우침)'
                     else:
-                        description = '불균형 (오른쪽으로 치우침)' if val < 0 else '불균형 (왼쪽으로 치우침)'
+                        description = "측정값 없음"
 
                 description_list.append(f'{pair_name} : ' + description)
 
+            if not result1:
+                result1 = "?"
+            else:
+                result1  = f'{abs(result1)}{unit_name}'
+            
+            if not result2:
+                result2 = "?"
+            else:
+                result2 = f'{abs(result2)}{unit_name}'
+            
+            result = f'{result1} / {result2}'
             if all([ i['title'] != title for i in report_items ]):
                 report_items.append({
                     'title': title,
                     'alias': alias,
-                    'result': f'{abs(result_val1)}{unit_name} / {abs(result_val2)}{unit_name}',
+                    'result': result,
                     'description' : description_list,
                     'description_list': True,
                     'metric': metric,
@@ -209,23 +263,40 @@ def body_report(request, id):
                     'sections': { getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in ['outline', 'risk', 'improve', 'recommended']  }
                 })
         else:
-            result = round(getattr(body_result_latest, body_info.code_id), 2)
+            result_val = getattr(body_result_latest, body_info.code_id)
+            result = None
+            if result_val is not None:
+                result = round(result_val, 2)
             unit_name = body_info.unit_name
             normal_range = [body_info.normal_min_value, body_info.normal_max_value]
             if 'angle' in alias:
-                description = '왼쪽으로' if result < 0 else '오른쪽으로'
+                if result:
+                    description = '왼쪽으로' if result < 0 else '오른쪽으로'
+                else:
+                    description = "측정값 없음"
                 metric = '각도 [°]'
             
             if alias == 'forward_head_angle':
-                description = '양호' if normal_range[0] < result < normal_range[1] else '거북목 진행형'
+                if result:
+                    description = '양호' if normal_range[0] < result < normal_range[1] else '거북목 진행형'
+                else:
+                    description = "측정값 없음"
 
             if alias == 'leg_length_ratio':
-                description = '왼쪽이 더 짧음' if result < 0 else '오른쪽이 더 짧음'
+                if result:
+                    description = '왼쪽이 더 짧음' if result < 0 else '오른쪽이 더 짧음'
+                else:
+                    description = "측정값 없음"
                 metric = '다리 길이 차이 [%]'
+
+            if not result:
+                result = "?"
+            else:
+                result = f'{abs(result)}{unit_name}' # show absolute value
             report_items.append({
                 'title': body_info.code_name,
                 'alias': alias,
-                'result': f'{abs(result)}{unit_name}',
+                'result': result,
                 'description' : description,
                 'description_list': False,
                 'metric': metric,
@@ -582,7 +653,6 @@ def create_body_result(request):
         openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
         openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
         openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
-        openapi.Parameter('return_urls', openapi.IN_QUERY, description="If true return image urls", type=openapi.TYPE_BOOLEAN, required=False, default=True),
     ],
     responses={
         200: BodyResultSerializer(many=True),
@@ -636,21 +706,14 @@ def get_body_result(request):
     if count is not None:
         body_results = body_results.all()[:int(count)]
 
-    return_urls = request.query_params.get('return_urls', 'true')
-    return_urls = eval(return_urls.capitalize())
-
     # 수정된 body_results를 리스트로 저장
     updated_body_results = []
 
     for body_result in body_results:
         created_dt = body_result.created_dt.strftime('%Y%m%dT%H%M%S%f')
-        if return_urls:
-            # Presigned URL 생성 (일정 시간 동안)
-            body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
-            body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
-        else:
-            body_result.image_front_url = None
-            body_result.image_side_url = None
+        # Presigned URL 생성 (일정 시간 동안)
+        body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
+        body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
 
         if body_result.image_front_url is not None and requests.get(body_result.image_front_url).status_code in [400, 404]:
             body_result.image_front_url = None

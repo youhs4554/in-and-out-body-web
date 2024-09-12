@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Report Overview</title>
+    <title>체형 분석 보고서</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest"></script>
@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/report-favicon.ico' %}" >
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
@@ -29,6 +30,36 @@
                 <img src="{{ image_side_url }}" alt="Side Image">
             </div>
         </div>
+
+        <!-- 종합 평가 -->
+        <div class="mb-6">
+            <div class="summary-sub-title">
+                나의 체형 종합 평가 
+                <span class="summary-info-icon" title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
+                    ⓘ
+                </span>
+            </div>
+            <div class="summary-evaluation-container">
+                {% for item in report_items %}
+                    <div class="summary-evaluation-row">
+                        <div class="summary-title">{{ item.title }}</div>
+                        <div class="summary-description">
+                            {% if item.description_list %}
+                                <!-- 배열일 경우, / 로 연결 -->
+                                <p>{{ item.description|join:" / " }}</p> 
+                            {% else %}
+                                {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
+                            {% endif %}
+                            <p>{{ item.result }}</p> 
+                        </div>
+                        <div class="summary-description">{{ item.metric }}</div>
+                    </div>
+                    <hr class="summary-divider-line" /> <!-- Divider line -->
+                {% endfor %}
+            </div>
+        </div>
+        <div class="caution-text"">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+            건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
 
         <!-- Divider -->
         <div class="divider"></div>
@@ -83,7 +114,7 @@
                 </div>
             </div>
 
-            <div class="caution-text">위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+            <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
                 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
 
             <!-- Divider -->

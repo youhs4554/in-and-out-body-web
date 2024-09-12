@@ -16,7 +16,12 @@
     <button type="submit" class="button">조회</button>
 </form>
 
-{% if users %}
+<!-- 에러 메시지 표시 -->
+{% if error_message %}
+    <p style="color:red;">{{ error_message }}</p>
+{% endif %}
+
+{% if user_results %}
     <h3>Analysis Data for Group: {{ selected_group }}</h3>
     <div class="table-container">
         <table>
@@ -30,13 +35,19 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user in users %}
+                {% for result in user_results %}
                 <tr>
-                    <td>{{ user.student_grade }}</td>
-                    <td>{{ user.student_class }}</td>
-                    <td>{{ user.student_number }}</td>
-                    <td>{{ user.student_name }}</td>
-                    <td><a href="{% url 'body_report' user.id %}" class="button">링크</a></td>
+                    <td>{{ result.user.student_grade }}</td>
+                    <td>{{ result.user.student_class }}</td>
+                    <td>{{ result.user.student_number }}</td>
+                    <td>{{ result.user.student_name }}</td>
+                    <td>
+                        {% if result.analysis_valid %}
+                            <a href="{% url 'body_report' result.user.id %}" class="button">✅</a>
+                        {% else %}
+                            <span>❌ (없음)</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
