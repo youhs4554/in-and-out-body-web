@@ -689,30 +689,41 @@ a.btn-link button i {
 }
 
 .spinner-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    position: fixed; /* Ensures it stays in view */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    z-index: 9999; /* Make sure it's on top of other elements */
 }
 
+/* Spinner Styling */
 .spinner {
-    border: 8px solid #f3f3f3;
-    border-top: 8px solid #3498db;
+    border: 8px solid rgba(0, 0, 0, 0.1); /* Light gray border */
+    border-left-color: #3498db; /* Blue color for the spinner */
     border-radius: 50%;
     width: 50px;
     height: 50px;
     animation: spin 1s linear infinite;
 }
 
+/* Animation for Spinner */
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Text Styling */
+.spinner-container p {
+    margin-top: 10px;
+    color: white; /* White text color */
+    font-size: 1.2rem; /* Slightly larger text */
+    font-weight: bold; /* Bold text for better visibility */
 }
 
 .icon-button {
