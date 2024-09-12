@@ -133,7 +133,7 @@ kst = pytz.timezone('Asia/Seoul')
 # TODO: fetch from DB
 
 @login_required
-def body_report(request, id):
+def report_detail(request, id):
     max_count = 20
     body_info_queryset = CodeInfo.objects.filter(group_id='01').order_by('seq_no')
     
@@ -342,7 +342,7 @@ def body_report(request, id):
         'image_side_url': generate_presigned_url(file_keys=['side', created_dt]),
     }
 
-    return render(request, 'body_report.html', context)
+    return render(request, 'report_detail.html', context)
 
 def policy(request):
     return render(request, 'policy.html')

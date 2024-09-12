@@ -43,7 +43,7 @@
                     <td>{{ result.user.student_name }}</td>
                     <td>
                         {% if result.analysis_valid %}
-                            <a href="{% url 'body_report' result.user.id %}" class="button">✅</a>
+                            <a href="{% url 'report_detail' result.user.id %}" class="button">✅</a>
                         {% else %}
                             <span>❌ (없음)</span>
                         {% endif %}

@@ -31,10 +31,10 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register_student'), name='login'),
     path('register-student/', views.register_student, name='register_student'),
     path('report/', views.report, name='report'),
+    path('report/<int:id>/', views.report_detail, name='report_detail'),
     path('policy/', views.policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 
-    path('body_report/<int:id>/', views.body_report, name='body_report'),
 
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('password-change/', views.CustomPasswordChangeView.as_view(), name='password_change'),
