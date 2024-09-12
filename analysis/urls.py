@@ -32,6 +32,7 @@ urlpatterns = [
     path('register-student/', views.register_student, name='register_student'),
     path('report/', views.report, name='report'),
     path('report/<int:id>/', views.report_detail, name='report_detail'),
+    path('no-result/', views.no_result, name='no_result'),
     path('policy/', views.policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 

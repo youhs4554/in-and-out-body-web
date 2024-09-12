@@ -39,6 +39,10 @@ button {
     cursor: pointer;
 }
 
+a {
+    text-decoration-line: none; /* 링크의 밑줄 제거 */
+}
+
 .upload-section {
     margin: 20px 0;
     padding: 20px;
@@ -262,6 +266,7 @@ th, td {
 }
 
 th {
+    font-size: 1.3rem;
     background-color: #f4f4f4;
 }
 
@@ -681,4 +686,64 @@ a.btn-link button i {
         background-color: #28a745; /* Return to original color */
         box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
     }
+}
+
+.spinner-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.spinner {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    text-decoration: none;
+    font-size: 16px;
+    color: #fff; /* White text color */
+    transition: background-color 0.3s ease;
+}
+
+.icon-button.success {
+    background-color: #28a745; /* Green for success */
+}
+
+.icon-button.success:hover {
+    background-color: #218838; /* Darker green on hover */
+}
+
+.icon-button.error {
+    background-color: #dc3545; /* Red for error */
+}
+
+.icon-button.error:hover {
+    background-color: #c82333; /* Darker red on hover */
+}
+
+.icon-button i {
+    margin: 0;
 }

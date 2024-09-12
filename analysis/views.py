@@ -75,6 +75,9 @@ def register_student(request):
     
     return render(request, 'register_student.html', {'form': form})
 
+def no_result(request):
+    return render(request, 'no_result.html')
+
 @login_required
 def report(request):
     groups = UserInfo.objects.values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
@@ -89,7 +92,7 @@ def report(request):
         # 정규 표현식으로 학년과 반 추출
         match = re.search(r"(\d+)학년 (\d+)반", selected_group)
         if match:
-            users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2))
+            users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
 
             # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
             for user in users:
@@ -108,7 +111,7 @@ def report(request):
                     'analysis_valid': analysis_valid
                 })
         else:
-            error_message = '선택한 그룹이 올바르지 않습니다. 다시 선택해주세요.'
+            error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
             users = UserInfo.objects.none()
     else:
         selected_group = None

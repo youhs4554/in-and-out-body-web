@@ -52,6 +52,12 @@
         <button class="confirm-button" id="confirmButton">최종 저장</button>
     </div>
 
+    <!-- Spinner Container: Initially Hidden -->
+    <div id="spinnerContainer" class="spinner-container" style="display: none;">
+        <div class="spinner"></div>
+        ...업로드 중입니다...
+    </div>
+
     <!-- Table Container: Initially Hidden -->
     <div id="tableContainer" class="table-container" style="display: none;">
         <p>데이터를 확인해주세요</p>
@@ -92,23 +98,24 @@
             const templateSection = document.getElementById("templateSection");
             const uploadSection = document.getElementById("uploadSection");
             const uploadForm = document.getElementById("uploadForm");
-
+            const spinnerContainer = document.getElementById("spinnerContainer");
+    
             let jsonData = [];
             let currentPage = 1;
             const rowsPerPage = 10;
-
+    
             dragDropArea.addEventListener("dragover", function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 dragDropArea.classList.add("active");
             });
-
+    
             dragDropArea.addEventListener("dragleave", function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 dragDropArea.classList.remove("active");
             });
-
+    
             dragDropArea.addEventListener("drop", function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -118,26 +125,26 @@
                     processFile(files[0]);
                 }
             });
-
+    
             fileInput.addEventListener('change', function(event) {
                 const files = event.target.files;
                 if (files.length > 0) {
                     processFile(files[0]);
                 }
             });
-
+    
             function processFile(file) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     const data = new Uint8Array(event.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
-
+    
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     jsonData = XLSX.utils.sheet_to_json(worksheet);
-
+    
                     dataTableBody.innerHTML = "";
-
+    
                     if (jsonData.length > 0) {
                         tableContainer.style.display = "block";
                         displayTable(currentPage);
@@ -149,7 +156,7 @@
                 };
                 reader.readAsArrayBuffer(file);
             }
-
+    
             function displayTable(page) {
                 dataTableBody.innerHTML = "";
                 const startIndex = (page - 1) * rowsPerPage;
@@ -167,23 +174,32 @@
                     `;
                     dataTableBody.appendChild(tr);
                 }
+                updatePaginationButtons();
             }
-
+    
+            function updatePaginationButtons() {
+                const totalPages = Math.ceil(jsonData.length / rowsPerPage);
+                document.getElementById("prevPage").style.display = currentPage > 1 ? '' : 'none';
+                document.getElementById("nextPage").style.display = currentPage < totalPages ? '' : 'none';
+            }
+    
             document.getElementById("prevPage").addEventListener("click", function() {
                 if (currentPage > 1) {
                     currentPage--;
                     displayTable(currentPage);
                 }
             });
-
+    
             document.getElementById("nextPage").addEventListener("click", function() {
-                if (currentPage * rowsPerPage < jsonData.length) {
+                const totalPages = Math.ceil(jsonData.length / rowsPerPage);
+                if (currentPage < totalPages) {
                     currentPage++;
                     displayTable(currentPage);
                 }
             });
-
+    
             confirmButton.onclick = function() {
+                spinnerContainer.style.display = "flex"; // Show spinner
                 uploadForm.submit(); // Submit the form
             };
         });

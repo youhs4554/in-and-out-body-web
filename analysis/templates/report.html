@@ -24,6 +24,7 @@
 {% if user_results %}
     <h3>Analysis Data for Group: {{ selected_group }}</h3>
     <div class="table-container">
+        <p>데이터를 확인해주세요</p>
         <table>
             <thead>
                 <tr>
@@ -34,26 +35,79 @@
                     <th>체형 분석 결과</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="userResultsTableBody">
                 {% for result in user_results %}
-                <tr>
+                <tr data-id="{{ result.user.id }}" data-valid="{{ result.analysis_valid }}">
                     <td>{{ result.user.student_grade }}</td>
                     <td>{{ result.user.student_class }}</td>
                     <td>{{ result.user.student_number }}</td>
                     <td>{{ result.user.student_name }}</td>
                     <td>
                         {% if result.analysis_valid %}
-                            <a href="{% url 'report_detail' result.user.id %}" class="button">✅</a>
+                            <a href="{% url 'report_detail' result.user.id %}" class="icon-button success" aria-label="View Report">
+                                <i class="fa-solid fa-check"></i>
+                            </a>
                         {% else %}
-                            <span>❌ (없음)</span>
+                            <a href="{% url 'no_result' %}" class="icon-button error" aria-label="No Result">
+                                <i class="fa-solid fa-times"></i>
+                            </a>
                         {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        <div class="pagination-container">
+            <button class="pagination-button" id="prevPage">이전</button>
+            <button class="pagination-button" id="nextPage">다음</button>
+        </div>
     </div>
-{% else %}
-    <p>No data available for the selected group.</p>
 {% endif %}
+
+<!-- Include JavaScript for Pagination -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const rowsPerPage = 10;
+        let currentPage = 1;
+        const userResultsTableBody = document.getElementById('userResultsTableBody');
+        const rows = Array.from(userResultsTableBody.querySelectorAll('tr'));
+        const totalPages = Math.ceil(rows.length / rowsPerPage);
+        
+        const prevButton = document.getElementById("prevPage");
+        const nextButton = document.getElementById("nextPage");
+
+        function updatePaginationButtons() {
+            prevButton.style.display = currentPage > 1 ? '' : 'none';
+            nextButton.style.display = currentPage < totalPages ? '' : 'none';
+        }
+
+        function displayTable(page) {
+            const startIndex = (page - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
+            
+            rows.forEach((row, index) => {
+                row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+            });
+
+            updatePaginationButtons();
+        }
+
+        prevButton.addEventListener("click", function() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayTable(currentPage);
+            }
+        });
+
+        nextButton.addEventListener("click", function() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayTable(currentPage);
+            }
+        });
+
+        // Initial display
+        displayTable(currentPage);
+    });
+</script>
 {% endblock %}
