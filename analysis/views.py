@@ -156,9 +156,9 @@ def body_report(request, id):
                 
                 trend_samples = [getattr(body_result, paired_body_code_id_list[0]),
                                 getattr(body_result, paired_body_code_id_list[1]),
-                                body_result.created_dt.astimezone(kst).strftime('%Y-%m-%d %H:%M:%S')]
+                                body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
             else:
-                trend_samples = [getattr(body_result, body_code_id_), body_result.created_dt.astimezone(kst).strftime('%Y-%m-%d %H:%M:%S')]
+                trend_samples = [getattr(body_result, body_code_id_), body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
             trend_data.append(trend_samples)
 
         if is_paired:
@@ -259,7 +259,7 @@ def body_report(request, id):
                 'dates': [value[1] for value in trend_data]
             }
 
-    created_dt = body_result_latest.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+    created_dt = body_result_latest.created_dt.strftime('%Y%m%dT%H%M%S%f')
 
     context = {
         'user': user,
@@ -559,7 +559,7 @@ def create_body_result(request):
 
     if serializer.is_valid():
         serializer.save()
-        created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f%z').astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+        created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
         image_front_bytes = request.data.get('image_front', None)
         image_side_bytes = request.data.get('image_side', None)
         try:
@@ -643,7 +643,7 @@ def get_body_result(request):
     updated_body_results = []
 
     for body_result in body_results:
-        created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+        created_dt = body_result.created_dt.strftime('%Y%m%dT%H%M%S%f')
         if return_urls:
             # Presigned URL 생성 (일정 시간 동안)
             body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
