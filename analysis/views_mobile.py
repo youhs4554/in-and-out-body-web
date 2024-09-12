@@ -14,9 +14,6 @@ from analysis.helpers import generate_presigned_url, parse_userinfo
 from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
-import pytz
-kst = pytz.timezone('Asia/Seoul')
-
 @swagger_auto_schema(
     method='post',
     operation_description="Authenticate mobile device using mobile_uid",
@@ -235,7 +232,7 @@ def get_body_result(request):
     # 수정된 body_results를 리스트로 저장
     updated_body_results = []
     for body_result in body_results:
-        created_dt = body_result.created_dt.astimezone(kst).strftime('%Y%m%dT%H%M%S%f')
+        created_dt = body_result.created_dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
         # Presigned URL 생성 (일정 시간 동안)
         body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
         body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
