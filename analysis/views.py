@@ -51,14 +51,14 @@ def register_student(request):
                 
                 # Find or create the UserInfo
                 user_info, created = UserInfo.objects.update_or_create(
-                    phone_number=extract_digits(row['전화번호'].strip().replace('-', '')),
+                    phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
                     defaults=dict(
                         school=school_info,
                         student_grade=row['학년'],
                         student_class=row['반'],
                         student_number=row['번호'],
                         student_name=row['이름'].strip().replace(' ', ''),
-                        username=extract_digits(row['전화번호'].strip().replace('-', '')),
+                        username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
                         password=make_password(os.environ['DEFAULT_PASSWORD'])
                     ),
                 )
@@ -139,17 +139,10 @@ kst = pytz.timezone('Asia/Seoul')
 def report_detail(request, id):
     max_count = 20
     body_info_queryset = CodeInfo.objects.filter(group_id='01').order_by('seq_no')
-    
-    # Get the current date and time
-    now = timezone.now()
-
-    # Calculate the date 3 months ago
-    three_months_ago = now - relativedelta(months=3)
 
     # Filter records from the last 3 months
     body_result_queryset = BodyResult.objects.filter(
         user_id=id, 
-        created_dt__gte=three_months_ago,
         image_front_url__isnull=False,
         image_side_url__isnull=False,
     )
