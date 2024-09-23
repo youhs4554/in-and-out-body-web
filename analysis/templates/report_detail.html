@@ -101,13 +101,11 @@
                 <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
             </div>
 
-            {% if trend|length > 1 %}
-                <!-- Line Chart -->
-                <div class="mb-6">
-                    <div class="sub-title">변화 추이 - {{ item.title }}</div>
-                    <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
-                </div>
-            {% endif %}
+            <!-- Line Chart -->
+            <div class="mb-6">
+                <div class="sub-title">변화 추이 - {{ item.title }}</div>
+                <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
+            </div>
 
             <!-- Section Contents (detailed explanation) -->
             <div class="mb-6">
