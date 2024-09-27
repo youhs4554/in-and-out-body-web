@@ -1,0 +1,494 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Register Students{% endblock %}
+
+{% block content %}
+<body>
+    <h2>사용자 정보 등록</h2>
+    <p>아래 단계를 따라 사용자 정보를 등록하세요.</p>
+
+    <!-- Step 1: 기관 정보 입력 -->
+    <h3>1. 기관 정보 입력</h3>
+    <div id="searchSection" class="search-section">
+        <label for="orgSearchInput">기관명 검색:</label>
+        <input type="text" id="orgSearchInput" name="orgSearchInput" placeholder="기관명을 입력하세요" />
+        <!-- 기관 검색 결과 드롭다운 -->
+        <div id="orgResultsDropdown" class="results-dropdown" style="display: none;"></div>
+        <div id="orgInfoSection" class="info-section" style="display: none;">
+            <h4>기관 정보</h4>
+            <p id="orgName"></p>
+            <p id="orgAddress">주소: </p>
+            <p id="orgContact">연락처: </p>
+        </div>
+        <div class="org-map" id="map-container" style="display: none; flex-direction: column;">
+            <h4>지도</h4>
+            <div id="map" style="width: 100%; height: 300px;"></div> <!-- 지도 표시 영역 -->
+        </div>
+        <div id="btn-container" style="display: none; justify-content: center; align-items: center; padding: 10px 20px 0px 20px;">
+            <button id="confirmOrgButton" class="btn" style="background-color: #76b6d2; color: white;">기관 등록하기</button>
+        </div>
+    </div>
+
+    <!-- 기관이 등록된 후 표시되는 섹션 -->
+    <div id="selectedOrgSection" class="info-section" style="display: none;">
+        <h4>현재 등록된 기관 정보</h4>
+        <p id="selectedOrgName"></p>
+        <p id="selectedOrgAddress">주소: </p>
+        <p id="selectedOrgContact">연락처: </p>
+        <button id="reselectOrgButton" class="btn" style="background-color: #ff6666; color: white;">기관 재등록</button>
+    </div>
+
+    <!-- Step 2: Excel 템플릿 다운로드 -->
+    <h3>2. 엑셀 템플릿 다운로드</h3>
+
+    <!-- 교직원 전용 템플릿 -->
+    <div id="templateSectionStaff" class="info-section" style="display: flex;">
+        <h4><i class="fas fa-chalkboard-teacher fa-2xl" style="color: #1c3d6e;"></i>&nbsp; 교직원용 Excel 템플릿</h4>
+        <p>템플릿을 다운로드하여 데이터를 입력해주세요.</p>
+        <a href="{% static 'template_school.xlsx' %}" download class="btn-link">
+            <button class="btn" style="background-color: #1c3d6e; color: white;">
+                <i class="fa fa-download"></i> 다운로드
+            </button>
+        </a>
+    </div>
+
+    <!-- 일반 기관 전용 템플릿 -->
+    <div id="templateSectionGeneral" class="info-section" style="display: flex;">
+        <h4><i class="fas fa-building fa-2xl" style="color: #20744a;"></i>&nbsp; 일반 기관용 Excel 템플릿</h4>
+        <p>템플릿을 다운로드하여 데이터를 입력해주세요.</p>
+        <a href="{% static 'template.xlsx' %}" download class="btn-link">
+            <button class="btn" style="background-color: #20744a; color: white;">
+                <i class="fa fa-download"></i> 다운로드
+            </button>
+        </a>
+    </div>
+
+    <!-- Step 3: Excel 업로드 -->
+    <h3>3. 엑셀로부터 사용자 데이터 등록</h3>
+    <p>엑셀 파일을 작성한 후 업로드하세요.</p>
+
+    <!-- Drag and Drop Upload Section -->
+    <div class="upload-section" id="uploadSection">
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="fileInput" class="drag-drop-area" id="dragDropArea">
+                <div>
+                    <i class="fa-solid fa-arrow-up-from-bracket fa-xl"></i>
+                </div>
+                <h4>파일 업로드</h4>
+                <input type="file" name="file" id="fileInput" accept=".xlsx" style="display: none;" />
+                <p>템플릿 파일을 작성하여 업로드하세요.</p>
+            </label>
+        </form>
+    </div>
+
+    <!-- Info Section: Initially Hidden -->
+    <div id="fileinfoSection" class="info-section" style="display: none;">
+        <div class="icon">
+            <i class="fa-solid fa-file-excel fa-2xl" style="color: #20744a;"></i>
+        </div>
+        <div class="file-name" id="uploadedFileName">파일 이름</div>
+        <div class="message">데이터는 암호화되어 안전하게 관리됩니다</div>
+        <button class="confirm-button" id="confirmButton">최종 저장</button>
+    </div>
+
+
+    <!-- Spinner Container: Initially Hidden -->
+    <div id="spinnerContainer" class="spinner-container" style="display: none;">
+        <div class="spinner"></div>
+        <p>업로드 중입니다...</p>
+    </div>
+
+    <!-- Table Container: Initially Hidden -->
+    <div id="tableContainer" class="table-container" style="display: {% if users %}block{% else %}none{% endif %};">
+        <h4>업로드된 데이터를 확인해주세요</h4>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                        <th>{{ column }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        {% for column in columns %}
+                            <td>{{ user|get_item:column }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="pagination-container">
+            <button class="pagination-button" id="prevPage">이전</button>
+            <button class="pagination-button" id="nextPage">다음</button>
+        </div>
+    </div>
+
+
+    <!-- Include SheetJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=2ab9bb600b001508c914eb8658150523"></script>
+    <!-- JavaScript for Drag-and-Drop Area Activation, File Processing, and Pagination -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const dragDropArea = document.getElementById("dragDropArea");
+            const fileInput = document.getElementById("fileInput");
+            const dataTableBody = document.querySelector("#dataTable tbody");
+            const tableContainer = document.getElementById("tableContainer");
+            const confirmButton = document.getElementById("confirmButton");
+            const fileinfoSection = document.getElementById("fileinfoSection");
+            const uploadedFileName = document.getElementById("uploadedFileName");
+            const uploadSection = document.getElementById("uploadSection");
+            const uploadForm = document.getElementById("uploadForm");
+            const spinnerContainer = document.getElementById("spinnerContainer");
+            
+            const searchSection = document.getElementById("searchSection");
+            const selectedOrgSection = document.getElementById("selectedOrgSection");
+            const orgSearchButton = document.getElementById("orgSearchButton");
+            const orgSearchInput = document.getElementById("orgSearchInput");
+            const orgInfoSection = document.getElementById("orgInfoSection");
+            const orgName = document.getElementById("orgName");
+            const orgAddress = document.getElementById("orgAddress");
+            const orgContact = document.getElementById("orgContact");
+            const selectedOrgName = document.getElementById("selectedOrgName");
+            const selectedOrgAddress = document.getElementById("selectedOrgAddress");
+            const selectedOrgContact = document.getElementById("selectedOrgContact");
+            const confirmOrgButton = document.getElementById("confirmOrgButton");
+            const reselectOrgButton = document.getElementById("reselectOrgButton");
+            const mapContainer = document.getElementById("map-container");
+            const mapElement = document.getElementById("map");
+            const btnContainer = document.getElementById("btn-container")
+
+            // 지도 변수
+            let map;
+            let marker;
+            let selectedOrg = null; // 선택된 기관을 저장할 변수
+
+            // Fetch registered organization info on page load
+            fetch('/api/get-organization-info/') // API endpoint to get organization info
+                .then(response => response.json())
+                .then(data => {
+                    if (data.org_name) {
+                        // Display the registered organization info
+                        selectedOrgName.textContent = `기관명: ${data.org_name}`;
+                        selectedOrgAddress.textContent = `주소: ${data.address}`;
+                        selectedOrgContact.textContent = `연락처: ${data.contact}`;
+                        
+                        // Show the selected organization section
+                        searchSection.style.display = "none";
+                        selectedOrgSection.style.display = "block";
+                    }
+                })
+                .catch(error => console.error('Error fetching organization info:', error));
+            
+
+            // 기관명 검색 및 결과 처리
+            document.getElementById("orgSearchInput").addEventListener("keyup", function() {
+                const query = this.value.trim();
+                if (query.length > 0) {
+                    fetch(`/api/search-organization/?query=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const results = data.results;
+                            const orgResultsDropdown = document.getElementById("orgResultsDropdown");
+                            orgResultsDropdown.innerHTML = ""; // 이전 결과 삭제
+                            
+                            if (results.length > 0) {
+                                results.forEach(org => {
+                                    const resultItem = document.createElement("div");
+                                    resultItem.className = "result-item";
+                                    
+                                    // 기관명 (볼드체)
+                                    const name = document.createElement("strong");
+                                    name.textContent = org.name;
+                                    
+                                    // 주소 및 연락처 (작고 연한 텍스트)
+                                    const info = document.createElement("div");
+                                    info.className = "org-info";
+                                    info.innerHTML = `<span>${org.address}</span><br/><span>${org.contact}</span>`;
+                                    
+                                    resultItem.appendChild(name);
+                                    resultItem.appendChild(info);
+                                    
+                                    resultItem.onclick = function() {
+                                        // 기관 선택
+                                        selectedOrg = org;
+                                        orgResultsDropdown.style.display = "none"; // 결과 드롭다운 숨기기
+                                        document.getElementById("btn-container").style.display = "flex"; // 버튼 표시
+                                        document.getElementById("orgSearchInput").value = org.name; // 선택한 기관명 설정
+                                        
+                                        // 기관 정보 표시
+                                        document.getElementById("orgName").textContent = `${org.name}`;
+                                        document.getElementById("orgAddress").textContent = `주소: ${org.address}`;
+                                        document.getElementById("orgContact").textContent = `연락처: ${org.contact}`;
+                                        document.getElementById("orgInfoSection").style.display = "flex"; // 정보 섹션 표시
+
+                                        document.getElementById("map-container").style.display = 'flex';
+
+                                        // 지도 표시
+                                        displayMap(org.y, org.x); // 선택한 기관의 좌표를 기반으로 지도 표시
+                                    };
+                                    orgResultsDropdown.appendChild(resultItem);
+                                });
+                                orgResultsDropdown.style.display = "block"; // 결과 드롭다운 표시
+                            } else {
+                                orgResultsDropdown.style.display = "none"; // 검색 결과가 없으면 드롭다운 숨기기
+                            }
+                        })
+                        .catch(error => console.error('Error fetching organization data:', error));
+                } else {
+                    document.getElementById("orgResultsDropdown").style.display = "none"; // 입력 필드가 비어있으면 드롭다운 숨기기
+                }
+            });
+
+            // 지도 표시 함수
+            function displayMap(y, x) {
+                const latlng = new kakao.maps.LatLng(y, x);
+                
+                // 지도 생성
+                if (!map) {
+                    map = new kakao.maps.Map(document.getElementById('map'), {
+                        center: latlng, // 지도의 중심좌표
+                        level: 3 // 지도의 확대 수준
+                    });
+                } else {
+                    map.setCenter(latlng); // 이미 있는 지도는 위치만 변경
+                }
+
+                // 마커 표시
+                if (marker) {
+                    marker.setMap(null); // 기존 마커 삭제
+                }
+                marker = new kakao.maps.Marker({
+                    position: latlng,
+                    map: map
+                });
+            }
+
+            // 기관 등록 버튼 클릭 시
+            confirmOrgButton.addEventListener("click", function() {
+                if (selectedOrg) {
+                    // 선택된 기관 정보를 저장하고 표시
+                    selectedOrgName.textContent = `기관명: ${selectedOrg.name}`;
+                    selectedOrgAddress.textContent = `주소: ${selectedOrg.address}`;
+                    selectedOrgContact.textContent = `연락처: ${selectedOrg.contact}`;
+                    
+                    // 검색 섹션을 숨기고 선택된 기관 정보를 표시
+                    searchSection.style.display = "none";
+                    selectedOrgSection.style.display = "block";
+
+                    // 기관 정보를 서버에 저장하는 fetch 요청
+                    fetch(`/api/register-organization/`, {  // Django URL 패턴 사용
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'  // CSRF 토큰 추가
+                        },
+                        body: JSON.stringify({
+                            org_name: selectedOrg.name,
+                            address: selectedOrg.address,
+                            contact_number: selectedOrg.contact
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('기관 등록에 실패했습니다.');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // 등록된 기관 정보 표시
+                        selectedOrgName.textContent = `기관명: ${selectedOrg.name}`;
+                        selectedOrgAddress.textContent = `주소: ${selectedOrg.address}`;
+                        selectedOrgContact.textContent = `연락처: ${selectedOrg.contact}`;
+
+                        // 선택된 기관 정보 섹션을 표시
+                        selectedOrgSection.style.display = "block";
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert("기관 등록에 실패했습니다.");
+                    });
+                }
+            });
+
+
+            // 기관 재등록 버튼 클릭 시
+            reselectOrgButton.addEventListener("click", function() {
+                // 검색 섹션을 다시 표시하고 선택된 기관 섹션을 숨김
+                searchSection.style.display = "block";
+                selectedOrgSection.style.display = "none";
+                orgSearchInput.value = "";  // 입력 필드 초기화
+                orgInfoSection.style.display = "none";  // 이전에 표시된 기관 정보 숨기기
+                btnContainer.style.display = "none"; // 버튼 컨테이너 숨기기
+                
+                // 지도 섹션 초기화
+                mapContainer.style.display = "none";
+                mapElement.innerHTML = "";  // 지도의 내용을 초기화
+                selectedOrg = null;  // 선택된 기관 초기화
+                // 지도 변수 초기화
+                map = null;
+                marker = null;
+            });
+            
+            let selectedFile = null;  // Store the selected file here
+        
+            let jsonData = [];
+            let columns = [];
+            let currentPage = 1;
+            const rowsPerPage = 10;
+        
+            dragDropArea.addEventListener("dragover", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dragDropArea.classList.add("active");
+            });
+        
+            dragDropArea.addEventListener("dragleave", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dragDropArea.classList.remove("active");
+            });
+        
+            dragDropArea.addEventListener("drop", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dragDropArea.classList.remove("active");
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                    selectedFile = files[0];  // Store the selected file
+                }
+            });
+
+            fileInput.addEventListener('change', function(event) {
+                const files = event.target.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                    selectedFile = files[0];  // Store the selected file
+                }
+            });
+        
+            function processFile(file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+        
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+                    // Set the columns dynamically based on the first row's keys
+                    columns = Object.keys(jsonData[0]);
+    
+                    if (jsonData.length > 0) {
+                        tableContainer.style.display = "block";
+                        displayTable(currentPage);
+                        fileinfoSection.style.display = "flex";
+                        uploadedFileName.textContent = file.name;
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        
+            function displayTable(page) {
+                dataTableBody.innerHTML = "";
+                const startIndex = (page - 1) * rowsPerPage;
+                const endIndex = Math.min(startIndex + rowsPerPage, jsonData.length);
+    
+                // Dynamically generate the table header
+                const tableHeader = document.querySelector("#dataTable thead tr");
+                tableHeader.innerHTML = "";
+                columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column;
+                    tableHeader.appendChild(th);
+                });
+    
+                // Populate the table rows
+                for (let i = startIndex; i < endIndex; i++) {
+                    const row = jsonData[i];
+                    const tr = document.createElement('tr');
+                    columns.forEach(column => {
+                        const td = document.createElement('td');
+                        td.textContent = row[column] || 'N/A';
+                        tr.appendChild(td);
+                    });
+                    dataTableBody.appendChild(tr);
+                }
+                updatePaginationButtons();
+            }
+        
+            function updatePaginationButtons() {
+                const totalPages = Math.ceil(jsonData.length / rowsPerPage);
+                document.getElementById("prevPage").style.display = currentPage > 1 ? '' : 'none';
+                document.getElementById("nextPage").style.display = currentPage < totalPages ? '' : 'none';
+            }
+        
+            document.getElementById("prevPage").addEventListener("click", function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayTable(currentPage);
+                }
+            });
+        
+            document.getElementById("nextPage").addEventListener("click", function() {
+                const totalPages = Math.ceil(jsonData.length / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayTable(currentPage);
+                }
+            });
+        
+            confirmButton.onclick = function() {
+                if (!selectedFile) {
+                    alert("파일을 선택해주세요.");  // If no file is selected, show an error
+                    return;
+                }
+
+                spinnerContainer.style.display = "flex";  // Show spinner
+
+                const formData = new FormData(uploadForm);
+                formData.append('file', selectedFile);  // Manually append the file to FormData
+
+                fetch(uploadForm.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return;
+                })
+                .then(data => {
+                    resetInterface();  // Reset the interface after successful submission
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                    spinnerContainer.style.display = "none";  // Hide spinner in case of error
+                });
+            };
+
+            // Function to reset the interface
+            function resetInterface() {
+                jsonData = [];
+                columns = [];
+                currentPage = 1;
+                dataTableBody.innerHTML = "";
+                tableContainer.style.display = "none";
+                fileinfoSection.style.display = "none";
+                uploadSection.style.display = "block";
+                uploadForm.reset(); // Reset the file input
+                spinnerContainer.style.display = "none"; // Hide spinner
+            }
+        });
+    </script>
+</body>
+{% endblock %}

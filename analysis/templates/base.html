@@ -26,11 +26,11 @@
         <div class="sidebar">
             <h2>웰니스 바디 스캐너</h2>
             <ul>
-                <li><a href="{% url 'register_student' %}"><i class="fas fa-school-flag menu-icon"></i>&nbsp 학생 정보 등록</a></li>
-                <li><a href="{% url 'report' %}"><i class="fas fa-file-alt menu-icon"></i>&nbsp 검사 결과 조회</a></li>
+                <li><a href="{% url 'register' %}"><i class="fas fa-user-plus menu-icon"></i>&nbsp 사용자 정보 등록</a></li>
+                <li><a href="{% url 'report' %}"><i class="fas fa-chart-bar menu-icon"></i>&nbsp 검사 결과 조회</a></li>
                 <li><a href="{% url 'policy' %}"><i class="fas fa-shield-alt menu-icon"></i>&nbsp 개인정보 처리 방침</a></li>
-                <li><a href="#" onclick="openPasswordChangeWindow()"><i class="fas fa-lock menu-icon"></i>&nbsp 비밀번호 변경</a></li>
-            </ul>
+                <li><a href="#" onclick="openPasswordChangeWindow()"><i class="fas fa-key menu-icon"></i>&nbsp 비밀번호 변경</a></li>
+            </ul>            
             <div class="user-info">
                 {% if user.is_authenticated %}
                     <p style="font-size: large;">

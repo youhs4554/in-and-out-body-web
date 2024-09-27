@@ -1,4 +1,3 @@
-from django.contrib.auth.models import Group
 from rest_framework import serializers
 
 from analysis.models import UserInfo, UserHist, SessionInfo, SchoolInfo, GaitResult, BodyResult, CodeInfo

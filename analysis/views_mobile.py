@@ -73,9 +73,15 @@ def login_mobile(request):
             username=auth_info.phone_number,
             password=make_password(os.environ['DEFAULT_PASSWORD']),
         ))
+    
+    if authorized_user_info.school is not None:
+        authorized_user_info.user_type = 'S'
+    if authorized_user_info.organization is not None:
+        authorized_user_info.user_type = 'O'
+    else:
+        authorized_user_info.user_type = 'G'
 
-    authorized_user_info.user_type = 'G' if authorized_user_info.school is None else 'S'
-    if authorized_user_info.user_type == 'G':
+    if authorized_user_info.user_type in ['O', 'G']:
         authorized_user_info.username = f'test_{authorized_user_info.id}'
 
     authorized_user_info.save()

@@ -1,5 +1,6 @@
 # analysis/views.py
 
+import json
 import os
 import re
 import uuid
@@ -15,7 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
 from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
-from .models import BodyResult, CodeInfo, GaitResult, SchoolInfo, UserInfo, SessionInfo
+from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo
 from .forms import UploadFileForm, CustomPasswordChangeForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
@@ -28,52 +29,182 @@ from dateutil.relativedelta import relativedelta
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('register_student')
+        return redirect('register')
     else:
         return redirect('login')
 
 @login_required
-def register_student(request):
+def register(request):
     users = []  # Initialize an empty list to hold user data
+    columns = []  # Initialize an empty list for dynamic columns
 
+    user = request.user  # 현재 로그인된 사용자 가져오기
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             excel_file = request.FILES['file']
             # Read the Excel file
             df = pd.read_excel(excel_file)
-            
-            for _, row in df.iterrows():
-                    
-                school_info, created = SchoolInfo.objects.update_or_create(
-                    school_name=row['학교'],
-                )
-                
-                # Find or create the UserInfo
-                user_info, created = UserInfo.objects.update_or_create(
-                    phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                    defaults=dict(
-                        school=school_info,
-                        student_grade=row['학년'],
-                        student_class=row['반'],
-                        student_number=row['번호'],
-                        student_name=row['이름'].strip().replace(' ', ''),
-                        username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                        password=make_password(os.environ['DEFAULT_PASSWORD'])
-                    ),
-                )
+            user_type = user.user_type
 
-                users.append(user_info)
-
-
-            return render(request, 'register_student.html', {
-                'form': form,
-                'users': users
-            })
+            # Define columns based on user type
+            if user_type == 'S':
+                columns = [ '학년', '반', '번호', '이름', '전화번호' ]
+                for _, row in df.iterrows():
+                    school_info, created = SchoolInfo.objects.update_or_create(
+                        school_name=user.school.school_name,
+                        defaults={
+                            'contact_number': user.school.contact_number,
+                            'address': user.school.address,
+                        }
+                    )
+                    user_info, created = UserInfo.objects.update_or_create(
+                        phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
+                        defaults=dict(
+                            school=school_info,
+                            student_grade=row['학년'],
+                            student_class=row['반'],
+                            student_number=row['번호'],
+                            student_name=row['이름'].strip().replace(' ', ''),
+                            username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
+                            password=make_password(os.environ['DEFAULT_PASSWORD']),
+                            user_type=user_type,
+                            user_display_name=f"{school_info.school_name} {row['학년']}학년 {row['반']}반 {row['번호']}번 {row['이름']}",
+                            organization=None,
+                        ),
+                    )
+                    users.append({
+                        '학년': row['학년'],
+                        '반': row['반'],
+                        '번호': row['번호'],
+                        '이름': row['이름'],
+                        '전화번호': row['전화번호'],
+                    })
+            else:
+                columns = [ '이름', '전화번호' ]
+                for _, row in df.iterrows():
+                    organization_info, created = OrganizationInfo.objects.update_or_create(
+                        organization_name=user.organization.organization_name,
+                        defaults={
+                            'contact_number': user.organization.contact_number,
+                            'address': user.organization.address
+                        },
+                    )
+                    user_info, created = UserInfo.objects.update_or_create(
+                        phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
+                        defaults=dict(
+                            organization=organization_info,
+                            student_name=row['이름'].strip().replace(' ', ''),
+                            username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
+                            password=make_password(os.environ['DEFAULT_PASSWORD']),
+                            user_type=user_type,
+                            user_display_name=f"{organization_info.organization_name} {row['이름']}",
+                            school=None,
+                        ),
+                    )
+                    users.append({
+                        '이름': row['이름'],
+                        '전화번호': row['전화번호'],
+                    })
     else:
         form = UploadFileForm()
+
+    return render(request, 'register.html', {
+        'form': form,
+        'users': users,
+        'columns': columns  # Pass dynamic columns
+    })
+
+from django.http import JsonResponse
+
+def search_organization(request):
+    query = request.GET.get('query', '')  # 사용자가 입력한 검색어를 가져옴
+    if not query:
+        return JsonResponse({'error': 'Query parameter is required'}, status=400)
+
+    # 카카오 키워드 검색 API 호출
+    url = "https://dapi.kakao.com/v2/local/search/keyword.json"
+    headers = {
+        "Authorization": f"KakaoAK {os.environ['KAKAO_MAP_REST_API_KEY']}"
+    }
+
+    params = {
+        "query": query,  # 검색어
+        "size": 5  # 검색 결과 최대 5개
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+
+    # API 호출 결과에서 필요 정보만 추출하여 반환
+    results = []
+    for document in data.get('documents', []):
+        results.append({
+            'name': document.get('place_name'),
+            'address': document.get('address_name'),
+            'contact': document.get('phone'),
+            'x': document.get('x'),
+            'y': document.get('y'),
+        })
+
+    return JsonResponse({'results': results})
+
+@login_required
+def register_organization(request):
+    if request.method == 'POST':
+        user = request.user  # 현재 로그인된 사용자 가져오기
+        data = json.loads(request.body)  # JSON 요청 본문을 파싱
+
+        org_name = data.get('org_name')
+        address = data.get('address')
+        contact_number = data.get('contact_number')
+
+        # 기관이 학교인지 확인
+        if '학교' in org_name:
+            school_info, created = SchoolInfo.objects.update_or_create(
+                school_name=org_name,
+                defaults={'contact_number': contact_number, 'address': address}
+            )
+            user.school = school_info
+            user.organization = None  # 학교 등록 시 다른 기관 정보 초기화
+            user.user_type = 'S'
+        else:
+            org_info, created = OrganizationInfo.objects.update_or_create(
+                organization_name=org_name,
+                defaults={'contact_number': contact_number, 'address': address}
+            )
+            user.organization = org_info
+            user.school = None  # 다른 기관 등록 시 학교 정보 초기화
+            user.user_type = 'O'
+
+        user.save()  # 사용자 정보 저장
+
+        return JsonResponse({'message': '기관이 성공적으로 등록되었습니다.'}, status=200)
+
+    return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+
+@login_required
+def get_organization_info(request):
+    user_id = request.user.id  # 관리자 계정의 고유 id
+    user = UserInfo.objects.get(id=user_id)
     
-    return render(request, 'register_student.html', {'form': form})
+    org_info = {}
+    if user.school is not None:
+        org_info = {
+            'org_name': user.school.school_name,
+            'address': user.school.address,
+            'contact': user.school.contact_number,
+            'type': 'school'
+        }
+    elif user.organization is not None:
+        org_info = {
+            'org_name': user.organization.organization_name,
+            'address': user.organization.address,
+            'contact': user.organization.contact_number,
+            'type': 'organization'
+        }
+    
+    return JsonResponse(org_info)
 
 def no_result(request):
     return render(request, 'no_result.html')
@@ -536,6 +667,8 @@ def get_info(requests):
             'value_range_max': codeinfo.get(code_id=item['code_id']).max_value,
             'normal_range_min': codeinfo.get(code_id=item['code_id']).normal_min_value,
             'normal_range_max': codeinfo.get(code_id=item['code_id']).normal_max_value,
+            'caution_range_min': codeinfo.get(code_id=item['code_id']).caution_min_value,
+            'caution_range_max': codeinfo.get(code_id=item['code_id']).caution_max_value,
             'unit_name': item['unit_name'],
         }
         if name == 'body':

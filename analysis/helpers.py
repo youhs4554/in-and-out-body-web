@@ -83,6 +83,7 @@ def parse_userinfo(userinfo_obj):
         'student_number': userinfo_obj.student_number if userinfo_obj.student_number else -1,
         'student_name': userinfo_obj.student_name if userinfo_obj.student_name else 'N/A',
         'phone_number': userinfo_obj.phone_number if userinfo_obj.phone_number else 'N/A',
+        'user_display_name': userinfo_obj.user_display_name if userinfo_obj.user_display_name else 'N/A',
         'dob': userinfo_obj.dob if userinfo_obj.dob else 'N/A',
         'gender': userinfo_obj.gender if userinfo_obj.gender else 'N/A',
         'height': userinfo_obj.height if userinfo_obj.height else -1,

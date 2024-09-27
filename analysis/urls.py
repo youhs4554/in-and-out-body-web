@@ -28,8 +28,8 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register_student'), name='login'),
-    path('register-student/', views.register_student, name='register_student'),
+    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register'), name='login'),
+    path('register/', views.register, name='register'),
     path('report/', views.report, name='report'),
     path('report/<int:id>/', views.report_detail, name='report_detail'),
     path('no-result/', views.no_result, name='no_result'),
@@ -56,6 +56,11 @@ urlpatterns = [
     path('api/analysis/body/create_result/', views.create_body_result, name='create_body_result'),
     path('api/analysis/body/get_result/', views.get_body_result, name='get_body_result'),
     path('api/analysis/get_info/', views.get_info, name='get_info'),
+
+    # 기관 정보 조회 api
+    path('api/search-organization/', views.search_organization, name='search_organization'),
+    path('api/register-organization/', views.register_organization, name='register_organization'),
+    path('api/get-organization-info/', views.get_organization_info, name='get_organization_info'),
 
     ## 모바일 전용 API (모바일 이외의 용도로 사용하지 말것)
     path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청

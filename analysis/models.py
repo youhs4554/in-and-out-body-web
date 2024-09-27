@@ -43,19 +43,31 @@ class SessionInfo(models.Model):
 class SchoolInfo(models.Model):
     school_name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=100, null=True)
+    address = models.CharField(max_length=100, null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.school_name
 
+class OrganizationInfo(models.Model):
+    organization_name = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=100, null=True)
+    address = models.CharField(max_length=100, null=True)
+    created_dt = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.organization_name
+
 class UserInfo(AbstractUser):
     user_type = models.CharField(max_length=1, default='S', null=False, blank=False)
     phone_number = models.CharField(max_length=100)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
+    organization = models.ForeignKey(OrganizationInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
     student_grade = models.IntegerField(null=True, blank=True)
     student_class = models.IntegerField(null=True, blank=True)
     student_number = models.IntegerField(null=True, blank=True)
     student_name = models.CharField(max_length=100, null=True, blank=True)
+    user_display_name = models.CharField(max_length=100, null=True, blank=True)
     dob = models.CharField(max_length=8, null=True, blank=True)
     gender = models.CharField(max_length=1, null=True)
     height = models.FloatField(null=True, blank=True)
@@ -69,10 +81,10 @@ class UserInfo(AbstractUser):
         ]
 
     def __str__(self):
-        if self.school is not None:
-            return f"[{self.school.school_name}] {self.student_grade}학년-{self.student_class}반-{self.student_number}-{self.student_name}"
+        if self.user_type in ['S', 'O']:
+            return self.user_display_name
         else:
-            return self.username
+            return f'{self.phone_number}'
 
 class UserHist(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
