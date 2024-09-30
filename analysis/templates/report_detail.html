@@ -1,4 +1,6 @@
 {% load static %}
+{% load custom_filters %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,7 +27,14 @@
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <h1 style="text-align: end;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+        {% if user.user_type == 'S' %}
+            <h1 style="text-align: end;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+        {% elif user.user_type == 'O' %}
+            <h1 style="text-align: end;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
+        {% else %}
+            <h1 style="text-align: end;">(일반인 사용자) {{ user.student_name }} 님</h1>
+        {% endif %}
+
         <div class="main-title">체형 분석 결과</div>
 
         <!-- Result Image -->
@@ -61,19 +70,38 @@
                         <div class="summary-title">{{ item.title }}</div>
                         <div class="summary-description">
                             {% if item.description_list %}
-                                <!-- 배열일 경우, / 로 연결 -->
-                                <p>{{ item.summary|join:" / " }}</p> 
+                            <!-- 배열일 경우, /로 연결 -->
+                            <p>
+                                {% for summary_item in item.summary %}
+                                    <span style="color: {% if '정상' in summary_item or '양호' in summary_item %}green{% else %}orange{% endif %};">
+                                        {{ summary_item }}
+                                    </span>{% if not forloop.last %} / {% endif %}
+                                {% endfor %}
+                            </p>
                             {% else %}
                                 {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
                             {% endif %}
-                            <p>{{ item.result }}</p> 
+                            {% if item.description_list %}
+                                <p>
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% else %}
+                                <!-- item.result에 '정상' 또는 '양호'가 포함되었는지 검사 (배열이 아닐 경우에만 적용) -->
+                                <p style="color: {% if item.description_list is not defined %} {% if '정상' in item.result or '양호' in item.result %}green{% else %}orange{% endif %} {% endif %};">
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% endif %}
                         </div>
                         <div class="summary-description">{{ item.metric }}</div>
                     </div>
                     <hr class="summary-divider-line" /> <!-- Divider line -->
                 {% endfor %}
             </div>
-        </div>
+        </div>        
         <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
             건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
 
@@ -89,20 +117,25 @@
                 <div class="left-content">
                     <div class="title">{{ item.title }}</div>
                     <div class="description-label">측정 결과 | {{ item.metric }}</div>
-                        {% if item.description_list %}
-                            {% for description_item in item.description %}
-                                <div class="description-value">⭐️ {{ description_item }}</div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="description-value">{{ item.description }}</div>
-                        {% endif %}
-                    <div class="result-value">{{ item.result }}</div>
+                    {% if item.description_list %}
+                        {% for description_item in item.description %}
+                            <div class="description-value">⭐️ {{ description_item }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="description-value">{{ item.description }}</div>
+                    {% endif %}
+                    <div class="result-value" style="font-size: {% if item.result|split:','|length > 1 %}0.8em{% else %}3em{% endif %};">
+                        {% for result_item in item.result|split:',' %}
+                            {{ result_item|trim }}<br>
+                        {% endfor %}
+                    </div>
                 </div>
                 <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
             </div>
+            
 
             <!-- Line Chart -->
-            <div class="mb-6">
+            <div class="mb-6" id="trendChart-{{ item.alias }}">
                 <div class="sub-title">변화 추이 - {{ item.title }}</div>
                 <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
             </div>
@@ -143,12 +176,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Prepare trend data as JSON
             const trendDataDict = {{ trend_data_dict|safe }};
-    
+            const showChart = (Object.values(trendDataDict)[0].dates.length >= 2)
             // Initialize charts for each item
             {% for item in report_items %}
                 var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
                 var normalRange = {{ item.normal_range|safe }}; // Extract the normal range
                 var valueRange = {{ item.value_range|safe }};   // Extract the value range
+                var trendChart = document.getElementById('trendChart-{{ item.alias }}');
                 
                 {% if item.alias == 'spinal_imbalance' or item.alias == 'o_x_legs' or item.alias == 'knee_angle' %}
                     var trendData = trendDataDict['{{ item.alias }}'];
@@ -161,59 +195,67 @@
                     var margin = 0.01 * (maxValue - minValue);
                     var yMin = minValue - margin;
                     var yMax = maxValue + margin;
-    
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: trendDataDict['{{ item.alias }}'].dates,
-                            datasets: [{
-                                label: trendDataDict['{{ item.alias }}'].part[0],
-                                data: trendDataDict['{{ item.alias }}'].val1,
-                                borderColor: 'rgba(255, 99, 132, 1)',
-                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                borderWidth: 3,
+
+                    if (!showChart) {
+                        trendChart.style.display = 'none';
+                    } else {
+                        trendChart.style.display = 'block'; // Show the chart if there are enough data points
+                    }
+
+                    if (showChart){
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: trendDataDict['{{ item.alias }}'].dates,
+                                datasets: [{
+                                    label: trendDataDict['{{ item.alias }}'].part[0],
+                                    data: trendDataDict['{{ item.alias }}'].val1,
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    borderWidth: 3,
+                                },
+                                {
+                                    label: trendDataDict['{{ item.alias }}'].part[1],
+                                    data: trendDataDict['{{ item.alias }}'].val2,
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                    borderWidth: 3,
+                                },
+                                {
+                                    label: '정상 범위', // Add this label to the legend
+                                    data: [], // No data for this dataset
+                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    borderWidth: 0 // No border
+                                }]
                             },
-                            {
-                                label: trendDataDict['{{ item.alias }}'].part[1],
-                                data: trendDataDict['{{ item.alias }}'].val2,
-                                borderColor: 'rgba(54, 162, 235, 1)',
-                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                borderWidth: 3,
-                            },
-                            {
-                                label: '정상 범위', // Add this label to the legend
-                                data: [], // No data for this dataset
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                borderWidth: 0 // No border
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                x: { title: { display: true, text: '검사 일시' }},
-                                y: {
-                                    title: { display: true, text: '측정 결과' },
-                                    min: yMin,  // Set the minimum value for y-axis
-                                    max: yMax   // Set the maximum value for y-axis
-                                }
-                            },
-                            plugins: {
-                                annotation: {
-                                    annotations: {
-                                        box1: {
-                                            type: 'box',
-                                            yMin: normalRange[0],
-                                            yMax: normalRange[1],
-                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                            borderColor: 'rgba(75, 192, 192, 1)',
-                                            borderWidth: 1
+                            options: {
+                                responsive: true,
+                                scales: {
+                                    x: { title: { display: true, text: '검사 일시' }},
+                                    y: {
+                                        title: { display: true, text: '측정 결과' },
+                                        min: yMin,  // Set the minimum value for y-axis
+                                        max: yMax   // Set the maximum value for y-axis
+                                    }
+                                },
+                                plugins: {
+                                    annotation: {
+                                        annotations: {
+                                            box1: {
+                                                type: 'box',
+                                                yMin: normalRange[0],
+                                                yMax: normalRange[1],
+                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                                borderColor: 'rgba(75, 192, 192, 1)',
+                                                borderWidth: 1
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 {% else %}
                     var trendData = trendDataDict['{{ item.alias }}'];
                     var values = trendData.values.concat(valueRange || []);;
@@ -225,52 +267,62 @@
                     var margin = 0.01 * (maxValue - minValue);
                     var yMin = minValue - margin;
                     var yMax = maxValue + margin;
-    
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: trendDataDict['{{ item.alias }}'].dates,
-                            datasets: [{
-                                label: '{{ item.title }}',
-                                data: trendDataDict['{{ item.alias }}'].values,
-                                borderColor: 'rgba(255, 99, 132, 1)',
-                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                borderWidth: 3,
+                    var trendChart = document.getElementById('trendChart-{{ item.alias }}');
+
+                    if (!showChart) {
+                        trendChart.style.display = 'none';
+                    } else {
+                        trendChart.style.display = 'block'; // Show the chart if there are enough data points
+                    }
+
+                    if (showChart){
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: trendDataDict['{{ item.alias }}'].dates,
+                                datasets: [{
+                                    label: '{{ item.title }}',
+                                    data: trendDataDict['{{ item.alias }}'].values,
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    borderWidth: 3,
+                                },
+                                {
+                                    label: '정상 범위', // Add this label to the legend
+                                    data: [], // No data for this dataset
+                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    borderWidth: 0 // No border
+                                }]
                             },
-                            {
-                                label: '정상 범위', // Add this label to the legend
-                                data: [], // No data for this dataset
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                borderWidth: 0 // No border
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                x: { title: { display: true, text: '검사 일시' }},
-                                y: {
-                                    title: { display: true, text: '측정 결과' },
-                                    min: yMin,  // Set the minimum value for y-axis
-                                    max: yMax   // Set the maximum value for y-axis
-                                }
-                            },
-                            plugins: {
-                                annotation: {
-                                    annotations: {
-                                        box1: {
-                                            type: 'box',
-                                            yMin: normalRange[0],
-                                            yMax: normalRange[1],
-                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                            borderColor: 'rgba(75, 192, 192, 1)',
-                                            borderWidth: 1
+                            options: {
+                                responsive: true,
+                                scales: {
+                                    x: { title: { display: true, text: '검사 일시' }},
+                                    y: {
+                                        title: { display: true, text: '측정 결과' },
+                                        min: yMin,  // Set the minimum value for y-axis
+                                        max: yMax   // Set the maximum value for y-axis
+                                    }
+                                },
+                                plugins: {
+                                    annotation: {
+                                        annotations: {
+                                            box1: {
+                                                type: 'box',
+                                                yMin: normalRange[0],
+                                                yMax: normalRange[1],
+                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                                borderColor: 'rgba(75, 192, 192, 1)',
+                                                borderWidth: 1
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
+    
                 {% endif %}
             {% endfor %}
         });

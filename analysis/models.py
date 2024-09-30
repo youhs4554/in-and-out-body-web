@@ -25,6 +25,12 @@ class CodeInfo(models.Model):
     title_recommended = models.CharField(max_length=100, null=True)
     unit_name = models.CharField(max_length=20, null=True)
     seq_no = models.IntegerField(null=True)
+    display_ticks = ArrayField(
+        models.IntegerField(null=True, blank=True),  
+        size=None,
+        null=True, blank=True,
+        default=list,
+    )
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class AuthInfo(models.Model):
@@ -63,6 +69,7 @@ class UserInfo(AbstractUser):
     phone_number = models.CharField(max_length=100)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
     organization = models.ForeignKey(OrganizationInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
+    department = models.CharField(max_length=100, null=True, blank=True)
     student_grade = models.IntegerField(null=True, blank=True)
     student_class = models.IntegerField(null=True, blank=True)
     student_number = models.IntegerField(null=True, blank=True)

@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>로그인</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}" />
-    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}" >
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
     <script>
@@ -20,26 +20,32 @@
 </head>
 <body>
     <div class="login-container">
-        <h2>관리자 계정으로 로그인 해주세요.</h2>
+        <h2>로그인 해주세요.</h2>
 
         <form method="post">
             {% csrf_token %}
             <div>
                 <label for="username">ID</label>
-                <input type="text" name="username" id="username" required pattern="[A-Za-z0-9]+" title="영문 대소문자와 숫자만 입력 가능합니다." />
+                <input type="text" name="username" id="username"/>
             </div>
             <div>
                 <label for="password">비밀번호</label>
-                <input type="password" name="password" id="password" required pattern="[A-Za-z0-9]+" title="영문 대소문자와 숫자만 입력 가능합니다." />
+                <input type="password" name="password" id="password"/>
             </div>
             <button type="submit">Login</button>
         </form>
 
+        <!-- Show error message if login fails -->
         {% if form.errors %}
         <p style="color: red; text-align: center">
             ID 또는 비밀번호가 일치하지 않습니다. 다시 시도해주세요!
         </p>
         {% endif %}
+
+        <!-- Add a button for sign-up -->
+        <div class="signup-link">
+            <p>계정이 없으신가요? <a href="{% url 'signup' %}" class="button">회원 가입</a></p>
+        </div>
     </div>
 </body>
 </html>

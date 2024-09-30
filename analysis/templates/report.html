@@ -25,12 +25,25 @@
     <h3>{{ selected_group }}의 분석 현황</h3>
     <div class="table-container">
         <p>데이터를 확인해주세요</p>
+    
+        <!-- Display progress -->
+        <div class="progress-container">
+            <p>진행률: {{ progress_percentage|floatformat:1 }}%</p>
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ progress_percentage|floatformat:1 }}%;"></div>
+            </div>
+        </div>
+    
         <table>
             <thead>
                 <tr>
-                    <th>학년</th>
-                    <th>반</th>
-                    <th>번호</th>
+                    {% if request.user.user_type == 'S' %}
+                        <th>학년</th>
+                        <th>반</th>
+                        <th>번호</th>
+                    {% else %}
+                        <th>부서명</th>
+                    {% endif %}
                     <th>이름</th>
                     <th>체형 분석 결과</th>
                 </tr>
@@ -38,9 +51,13 @@
             <tbody id="userResultsTableBody">
                 {% for result in user_results %}
                 <tr data-id="{{ result.user.id }}" data-valid="{{ result.analysis_valid }}">
-                    <td>{{ result.user.student_grade }}</td>
-                    <td>{{ result.user.student_class }}</td>
-                    <td>{{ result.user.student_number }}</td>
+                    {% if request.user.user_type == 'S' %}
+                        <td>{{ result.user.student_grade }}</td>
+                        <td>{{ result.user.student_class }}</td>
+                        <td>{{ result.user.student_number }}</td>
+                    {% else %}
+                        <td>{{ result.user.department }}</td>
+                    {% endif %}
                     <td>{{ result.user.student_name }}</td>
                     <td>
                         {% if result.analysis_valid %}

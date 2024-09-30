@@ -1,0 +1,60 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>회원 가입</title>
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+</head>
+<body>
+    <div class="login-container">
+        <h2>회원 가입</h2>
+
+        <form method="post">
+            {% csrf_token %}
+            <div>
+                <label for="username">ID</label>
+                <input type="text" name="username" id="username" required />
+                {% if form.username.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.username.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="password1">비밀번호</label>
+                <input type="password" name="password1" id="password1" required />
+                {% if form.password1.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.password1.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="password2">비밀번호 확인</label>
+                <input type="password" name="password2" id="password2" required />
+                {% if form.password2.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.password2.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <button type="submit">회원 가입</button>
+        </form>
+
+        {% if form.non_field_errors %}
+        <div>
+            {% for error in form.non_field_errors %}
+            <p style="color: red; text-align: center">
+                {{ error }}
+            </p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <p>이미 계정이 있으신가요? <a href="{% url 'login' %}">로그인</a></p>
+    </div>
+</body>
+</html>

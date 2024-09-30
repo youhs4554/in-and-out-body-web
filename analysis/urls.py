@@ -29,8 +29,10 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', views.home, name='home'),
     path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register'), name='login'),
+    path('signup/', views.signup, name='signup'),
     path('register/', views.register, name='register'),
     path('report/', views.report, name='report'),
+    path('report/protected/', views.report_detail_protected, name='report_detail_protected'),
     path('report/<int:id>/', views.report_detail, name='report_detail'),
     path('no-result/', views.no_result, name='no_result'),
     path('policy/', views.policy, name='policy'),
@@ -61,6 +63,9 @@ urlpatterns = [
     path('api/search-organization/', views.search_organization, name='search_organization'),
     path('api/register-organization/', views.register_organization, name='register_organization'),
     path('api/get-organization-info/', views.get_organization_info, name='get_organization_info'),
+
+    # 서비스 모니터링 (prometheus)
+    path('', include('django_prometheus.urls')),
 
     ## 모바일 전용 API (모바일 이외의 용도로 사용하지 말것)
     path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청

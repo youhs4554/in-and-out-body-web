@@ -17,7 +17,7 @@ from drf_yasg import openapi
 from datetime import datetime, timedelta
 from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo
-from .forms import UploadFileForm, CustomPasswordChangeForm
+from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
 
@@ -33,6 +33,26 @@ def home(request):
     else:
         return redirect('login')
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.urls import reverse_lazy
+
+def signup(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Automatically log the user in after registration
+            login(request, user)
+            # Redirect to the desired page after registration
+            return redirect(reverse_lazy('home'))  # Redirect to 'home' or any other page
+    else:
+        form = CustomUserCreationForm()
+
+    return render(request, 'signup.html', {'form': form})
+
+
 @login_required
 def register(request):
     users = []  # Initialize an empty list to hold user data
@@ -42,73 +62,91 @@ def register(request):
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            excel_file = request.FILES['file']
-            # Read the Excel file
-            df = pd.read_excel(excel_file)
-            user_type = user.user_type
+            try:
+                excel_file = request.FILES['file']
+                # Read the Excel file
+                df = pd.read_excel(excel_file)
+                user_type = user.user_type
 
-            # Define columns based on user type
-            if user_type == 'S':
-                columns = [ '학년', '반', '번호', '이름', '전화번호' ]
-                for _, row in df.iterrows():
-                    school_info, created = SchoolInfo.objects.update_or_create(
-                        school_name=user.school.school_name,
-                        defaults={
-                            'contact_number': user.school.contact_number,
-                            'address': user.school.address,
-                        }
-                    )
-                    user_info, created = UserInfo.objects.update_or_create(
-                        phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                        defaults=dict(
-                            school=school_info,
-                            student_grade=row['학년'],
-                            student_class=row['반'],
-                            student_number=row['번호'],
-                            student_name=row['이름'].strip().replace(' ', ''),
-                            username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                            password=make_password(os.environ['DEFAULT_PASSWORD']),
-                            user_type=user_type,
-                            user_display_name=f"{school_info.school_name} {row['학년']}학년 {row['반']}반 {row['번호']}번 {row['이름']}",
-                            organization=None,
-                        ),
-                    )
-                    users.append({
-                        '학년': row['학년'],
-                        '반': row['반'],
-                        '번호': row['번호'],
-                        '이름': row['이름'],
-                        '전화번호': row['전화번호'],
-                    })
-            else:
-                columns = [ '이름', '전화번호' ]
-                for _, row in df.iterrows():
-                    organization_info, created = OrganizationInfo.objects.update_or_create(
-                        organization_name=user.organization.organization_name,
-                        defaults={
-                            'contact_number': user.organization.contact_number,
-                            'address': user.organization.address
-                        },
-                    )
-                    user_info, created = UserInfo.objects.update_or_create(
-                        phone_number=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                        defaults=dict(
-                            organization=organization_info,
-                            student_name=row['이름'].strip().replace(' ', ''),
-                            username=extract_digits(str(row['전화번호']).strip().replace('-', '')),
-                            password=make_password(os.environ['DEFAULT_PASSWORD']),
-                            user_type=user_type,
-                            user_display_name=f"{organization_info.organization_name} {row['이름']}",
-                            school=None,
-                        ),
-                    )
-                    users.append({
-                        '이름': row['이름'],
-                        '전화번호': row['전화번호'],
-                    })
+                # Define columns based on user type
+                if user_type == 'S':
+                    columns = [ '학년', '반', '번호', '이름', '전화번호' ]
+                    if not (df.columns.values.tolist() == columns):
+                        user_type_str = '교직원용' if user_type == 'S' else '일반 기관용'
+                        raise ValueError(f"올바른 템플릿이 아닙니다. {user_type_str} 템플릿을 다운로드 받아서 다시 시도해주세요.")
+                    for _, row in df.iterrows():
+                        school_info, created = SchoolInfo.objects.update_or_create(
+                            school_name=user.school.school_name,
+                            defaults={
+                                'contact_number': user.school.contact_number,
+                                'address': user.school.address,
+                            }
+                        )
+                        phone_number = extract_digits(str(row['전화번호']).strip().replace('-', ''))
+                        if phone_number.startswith('10'):
+                            phone_number = '0'+ phone_number
+                        user_info, created = UserInfo.objects.update_or_create(
+                            phone_number=phone_number,
+                            defaults=dict(
+                                school=school_info,
+                                student_grade=row['학년'],
+                                student_class=row['반'],
+                                student_number=row['번호'],
+                                student_name=row['이름'].strip().replace(' ', ''),
+                                username=phone_number,
+                                password=make_password(os.environ['DEFAULT_PASSWORD']),
+                                user_type=user_type,
+                                user_display_name=f"{school_info.school_name} {row['학년']}학년 {row['반']}반 {row['번호']}번 {row['이름']}",
+                                organization=None,
+                                department=None,
+                            ),
+                        )
+                        users.append({
+                            '학년': row['학년'],
+                            '반': row['반'],
+                            '번호': row['번호'],
+                            '이름': row['이름'],
+                            '전화번호': row['전화번호'],
+                        })
+                else:
+                    columns = [ '부서명', '이름', '전화번호' ]
+                    if not (df.columns.values.tolist() == columns):
+                        user_type_str = '교직원용' if user_type == 'S' else '일반 기관용'
+                        raise ValueError(f"올바른 템플릿이 아닙니다. {user_type_str} 템플릿을 다운로드 받아서 다시 시도해주세요.")
+                    for _, row in df.iterrows():
+                        organization_info, created = OrganizationInfo.objects.update_or_create(
+                            organization_name=user.organization.organization_name,
+                            defaults={
+                                'contact_number': user.organization.contact_number,
+                                'address': user.organization.address
+                            },
+                        )
+                        phone_number = extract_digits(str(row['전화번호']).strip().replace('-', ''))
+                        if phone_number.startswith('10'):
+                            phone_number = '0'+ phone_number
+                        user_info, created = UserInfo.objects.update_or_create(
+                            phone_number=phone_number,
+                            defaults=dict(
+                                organization=organization_info,
+                                department=row['부서명'].strip(),
+                                student_name=row['이름'].strip().replace(' ', ''),
+                                username=phone_number,
+                                password=make_password(os.environ['DEFAULT_PASSWORD']),
+                                user_type=user_type,
+                                user_display_name=f"{organization_info.organization_name} {row['이름']}",
+                                school=None,
+                            ),
+                        )
+                        users.append({
+                            '부서명': row['부서명'],
+                            '이름': row['이름'],
+                            '전화번호': row['전화번호'],
+                        })
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
     else:
         form = UploadFileForm()
-
+    
     return render(request, 'register.html', {
         'form': form,
         'users': users,
@@ -149,7 +187,7 @@ def search_organization(request):
 
     return JsonResponse({'results': results})
 
-@login_required
+# @login_required
 def register_organization(request):
     if request.method == 'POST':
         user = request.user  # 현재 로그인된 사용자 가져오기
@@ -160,13 +198,14 @@ def register_organization(request):
         contact_number = data.get('contact_number')
 
         # 기관이 학교인지 확인
-        if '학교' in org_name:
+        if org_name.endswith('학교'):
             school_info, created = SchoolInfo.objects.update_or_create(
                 school_name=org_name,
                 defaults={'contact_number': contact_number, 'address': address}
             )
             user.school = school_info
             user.organization = None  # 학교 등록 시 다른 기관 정보 초기화
+            user.department = None
             user.user_type = 'S'
         else:
             org_info, created = OrganizationInfo.objects.update_or_create(
@@ -175,6 +214,7 @@ def register_organization(request):
             )
             user.organization = org_info
             user.school = None  # 다른 기관 등록 시 학교 정보 초기화
+            user.department = None
             user.user_type = 'O'
 
         user.save()  # 사용자 정보 저장
@@ -183,7 +223,7 @@ def register_organization(request):
 
     return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
 
-@login_required
+# @login_required
 def get_organization_info(request):
     user_id = request.user.id  # 관리자 계정의 고유 id
     user = UserInfo.objects.get(id=user_id)
@@ -211,47 +251,87 @@ def no_result(request):
 
 @login_required
 def report(request):
-    groups = UserInfo.objects.values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
-    groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
-
+    user = request.user # 현재 유저
     error_message = None
+    selected_group = None
     user_results = []
 
-    if request.method == 'POST':
-        selected_group = request.POST.get('group')
+    if user.user_type == 'S':
+        groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
+        groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
+        if request.method == 'POST':
+            selected_group = request.POST.get('group')
 
-        # 정규 표현식으로 학년과 반 추출
-        match = re.search(r"(\d+)학년 (\d+)반", selected_group)
-        if match:
-            users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
+            # 정규 표현식으로 학년과 반 추출
+            match = re.search(r"(\d+)학년 (\d+)반", selected_group)
+            if match:
+                users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
 
-            # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
-            for user in users:
-                # 검사 결과 유효성 체크 로직
-                body_result_queryset = BodyResult.objects.filter(
-                    user_id=user.id,
-                    image_front_url__isnull=False,
-                    image_side_url__isnull=False,
-                )
+                # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
+                for user in users:
+                    # 검사 결과 유효성 체크 로직
+                    body_result_queryset = BodyResult.objects.filter(
+                        user_id=user.id,
+                        image_front_url__isnull=False,
+                        image_side_url__isnull=False,
+                    )
 
-                analysis_valid = (len(body_result_queryset) > 0)
+                    analysis_valid = (len(body_result_queryset) > 0)
 
-                # user와 검사 결과 여부를 딕셔너리 형태로 추가
-                user_results.append({
-                    'user': user,
-                    'analysis_valid': analysis_valid
-                })
-        else:
-            error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
-            users = UserInfo.objects.none()
+                    # user와 검사 결과 여부를 딕셔너리 형태로 추가
+                    user_results.append({
+                        'user': user,
+                        'analysis_valid': analysis_valid
+                    })
+            else:
+                error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
+                users = UserInfo.objects.none()
     else:
-        selected_group = None
+        groups = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name).values_list('department', named=True).distinct().order_by('department')
+        groups = [ g.department for g in groups if ((g.department is not None))]
+        if request.method == 'POST':
+            selected_group = request.POST.get('group')
+
+            if len(selected_group) > 0:
+                users = UserInfo.objects.filter(department=selected_group).order_by('student_name')
+
+                # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
+                for user in users:
+                    # 검사 결과 유효성 체크 로직
+                    body_result_queryset = BodyResult.objects.filter(
+                        user_id=user.id,
+                        image_front_url__isnull=False,
+                        image_side_url__isnull=False,
+                    )
+
+                    analysis_valid = (len(body_result_queryset) > 0)
+
+                    # user와 검사 결과 여부를 딕셔너리 형태로 추가
+                    user_results.append({
+                        'user': user,
+                        'analysis_valid': analysis_valid
+                    })
+            else:
+                error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
+                users = UserInfo.objects.none()
+
+    # Calculate the progress of analysis validity
+    total_users = len(user_results)
+    valid_count = sum(1 for result in user_results if result['analysis_valid'])
+
+    if total_users > 0:
+        progress_percentage = (valid_count / total_users) * 100
+    else:
+        progress_percentage = 0
 
     return render(request, 'report.html', {
         'groups': groups,
         'user_results': user_results,
         'selected_group': selected_group,
-        'error_message': error_message
+        'error_message': error_message,
+        'valid_count': valid_count,
+        'total_users': total_users,
+        'progress_percentage': progress_percentage,
     })
 
 # Example report items
@@ -263,11 +343,17 @@ import pytz
 
 kst = pytz.timezone('Asia/Seoul')
 
-# Example data structure with recent 3 months' trend data
-# TODO: fetch from DB
-
 @login_required
 def report_detail(request, id):
+    user_id = id
+    return generate_report(request, user_id)
+
+@login_required
+def report_detail_protected(request):
+    user_id = request.user.id
+    return generate_report(request, user_id)
+
+def generate_report(request, id):
     max_count = 20
     body_info_queryset = CodeInfo.objects.filter(group_id='01').order_by('seq_no')
 
@@ -359,7 +445,7 @@ def report_detail(request, id):
                         if normal_range[0] < val < normal_range[1]:
                             description = '양호'
                         else:
-                            description = '불균형 (오른쪽으로 치우침)' if val < 0 else '불균형 (왼쪽으로 치우침)'
+                            description = '불균형 (왼쪽으로 치우침)' if val < 0 else '불균형 (오른쪽으로 치우침)'
                     else:
                         description = "측정값 없음"
 
@@ -368,14 +454,29 @@ def report_detail(request, id):
             if not result1:
                 result1 = "?"
             else:
-                result1  = f'{abs(result1)}{unit_name}'
+                status_desc = ""
+                if alias == 'spinal_imbalance':
+                    if result1 < 0:
+                        status_desc += "왼쪽으로" + " "
+                    else:
+                        status_desc += "오른쪽으로" + " "
+                result1  = f'{status_desc}{abs(result1)}{unit_name}'
             
             if not result2:
                 result2 = "?"
             else:
-                result2 = f'{abs(result2)}{unit_name}'
+                status_desc = ""
+                if alias == 'spinal_imbalance':
+                    if result2 < 0:
+                        status_desc += "왼쪽으로" + " "
+                    else:
+                        status_desc += "오른쪽으로" + " "
+                result2  = f'{status_desc}{abs(result2)}{unit_name}'
             
-            result = f'{result1} / {result2}'
+            if alias == 'spinal_imbalance':
+                result = f'· 척추-어깨: {result1}, · 척추-골반: {result2}의 편향'
+            else:
+                result = f'{result1} / {result2}'
             if all([ i['title'] != title for i in report_items ]):
                 report_items.append({
                     'title': title,
@@ -420,7 +521,13 @@ def report_detail(request, id):
             if not result:
                 result = "?"
             else:
-                result = f'{abs(result)}{unit_name}' # show absolute value
+                status_desc = ""
+                if normal_range[0] < result < normal_range[1]:
+                    status_desc += " " + "(정상)"
+                else:
+                    status_desc += " " + "(유의)"
+
+                result = f'{abs(result)}{unit_name}{status_desc}' # show absolute value
             report_items.append({
                 'title': body_info.code_name,
                 'alias': alias,
@@ -682,6 +789,10 @@ def get_info(requests):
                 'title_risk': item['title_risk'],
                 'title_improve': item['title_improve'],
                 'title_recommended': item['title_recommended'],
+            })
+        if name == 'gait':
+            info[item['code_id']].update({
+                'display_ticks': codeinfo.get(code_id=item['code_id']).display_ticks
             })
 
     return Response({'data': info, 'message': 'OK', 'status': 200})

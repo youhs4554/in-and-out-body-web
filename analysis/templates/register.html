@@ -43,12 +43,13 @@
 
     <!-- Step 2: Excel 템플릿 다운로드 -->
     <h3>2. 엑셀 템플릿 다운로드</h3>
+    <p>엑셀 템플릿을 다운로드하여 사용자의 기본 정보를 입력 해주세요.</p>
 
     <!-- 교직원 전용 템플릿 -->
     <div id="templateSectionStaff" class="info-section" style="display: flex;">
         <h4><i class="fas fa-chalkboard-teacher fa-2xl" style="color: #1c3d6e;"></i>&nbsp; 교직원용 Excel 템플릿</h4>
         <p>템플릿을 다운로드하여 데이터를 입력해주세요.</p>
-        <a href="{% static 'template_school.xlsx' %}" download class="btn-link">
+        <a href="{% static '교직원용 템플릿.xlsx' %}" download class="btn-link">
             <button class="btn" style="background-color: #1c3d6e; color: white;">
                 <i class="fa fa-download"></i> 다운로드
             </button>
@@ -59,7 +60,7 @@
     <div id="templateSectionGeneral" class="info-section" style="display: flex;">
         <h4><i class="fas fa-building fa-2xl" style="color: #20744a;"></i>&nbsp; 일반 기관용 Excel 템플릿</h4>
         <p>템플릿을 다운로드하여 데이터를 입력해주세요.</p>
-        <a href="{% static 'template.xlsx' %}" download class="btn-link">
+        <a href="{% static '일반기관용 템플릿.xlsx' %}" download class="btn-link">
             <button class="btn" style="background-color: #20744a; color: white;">
                 <i class="fa fa-download"></i> 다운로드
             </button>
@@ -94,6 +95,14 @@
         <div class="message">데이터는 암호화되어 안전하게 관리됩니다</div>
         <button class="confirm-button" id="confirmButton">최종 저장</button>
     </div>
+
+    <!-- Success Alert: Initially Hidden -->
+    <div class="alert-success" style="display: none;">
+        <strong>성공!</strong> 사용자를 성공적으로 등록하였습니다.
+    </div>
+
+    <!-- Error Alert: Initially Hidden -->
+    <div class="alert-error" style="display: none;"></div>
 
 
     <!-- Spinner Container: Initially Hidden -->
@@ -146,6 +155,8 @@
             const uploadSection = document.getElementById("uploadSection");
             const uploadForm = document.getElementById("uploadForm");
             const spinnerContainer = document.getElementById("spinnerContainer");
+            const successAlert = document.querySelector('.alert-success');
+            const errorAlert = document.querySelector('.alert-error');
             
             const searchSection = document.getElementById("searchSection");
             const selectedOrgSection = document.getElementById("selectedOrgSection");
@@ -311,8 +322,7 @@
                         selectedOrgSection.style.display = "block";
                     })
                     .catch(error => {
-                        console.error('Error:', error);
-                        alert("기관 등록에 실패했습니다.");
+                        showErrorMessage(error.message)
                     });
                 }
             });
@@ -445,7 +455,16 @@
                     displayTable(currentPage);
                 }
             });
-        
+
+            function showErrorMessage(errorMessage) {
+                successAlert.style.display = 'none';
+                
+                // 'alert-error' 요소의 innerHTML 설정 (오류 메시지 삽입)
+                errorAlert.innerHTML = `<strong>실패!</strong> ${errorMessage}`;
+                
+                // 'alert-error' 요소를 화면에 표시
+                errorAlert.style.display = 'block';
+            }
             confirmButton.onclick = function() {
                 if (!selectedFile) {
                     alert("파일을 선택해주세요.");  // If no file is selected, show an error
@@ -463,16 +482,21 @@
                 })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                        // 응답이 실패하면 JSON 데이터를 파싱하여 에러 메시지를 가져옴
+                        return response.json().then(data => {
+                            throw new Error(data.error);  // 에러 메시지를 던짐
+                        });
                     }
                     return;
                 })
                 .then(data => {
-                    resetInterface();  // Reset the interface after successful submission
+                    errorAlert.style.display = 'none';
+                    successAlert.style.display = 'block';
+                    resetInterface();  // 성공적인 제출 후 인터페이스 초기화
                 })
                 .catch(error => {
-                    console.error('There was a problem with the fetch operation:', error);
-                    spinnerContainer.style.display = "none";  // Hide spinner in case of error
+                    showErrorMessage(error.message);  // 에러 메시지 alert
+                    resetInterface();  // 성공적인 제출 후 인터페이스 초기화
                 });
             };
 
