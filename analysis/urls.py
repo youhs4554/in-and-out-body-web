@@ -71,6 +71,7 @@ urlpatterns = [
     path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청
     path('api/mobile/login-mobile-qr/', views_mobile.login_mobile_qr, name='login_mobile_qr'), # 휴대폰에서 QR 인증 요청,
     path('api/mobile/user/get_user/', views_mobile.get_user, name='mobile-user-get_user'), # 사용자 정보 가져오기
+    path('api/mobile/user/delete_user/', views_mobile.delete_user, name='mobile-user-delete_user'), # 사용자
     path('api/mobile/code/get_code/', views_mobile.get_code, name='mobile-code-get_code'), # 코드 정보 가져오기
     path('api/mobile/gait/get_gait_result/', views_mobile.get_gait_result, name='mobile-gait-get_gait_result'), # 보행 결과 가져오기
     path('api/mobile/body/get_body_result/', views_mobile.get_body_result, name='mobile-body-get_body_result'), # 체형 결과 가져오기

@@ -416,7 +416,7 @@ def generate_report(request, id):
             normal_range = [body_info.normal_min_value, body_info.normal_max_value]
             for i, val in enumerate([result1, result2]):
                 if alias == 'o_x_legs':
-                    title = '다리 휘어짐'
+                    title = body_info.code_name.replace('(좌)', '').replace('(우)', '')
                     metric = '각도 [°]'
                     pair_name = '왼쪽' if i == 0 else '오른쪽'
                     if val:
@@ -427,7 +427,7 @@ def generate_report(request, id):
                     else:
                         description = "측정값 없음"
                 if alias == 'knee_angle':
-                    title = '무릎 기울기'
+                    title = body_info.code_name.replace('(좌)', '').replace('(우)', '')
                     metric = '각도 [°]'
                     pair_name = '왼쪽' if i == 0 else '오른쪽'
                     if val:
@@ -438,14 +438,14 @@ def generate_report(request, id):
                     else:
                         description = "측정값 없음"
                 if alias == 'spinal_imbalance':
-                    title = '척추 불균형'
-                    metric = '척추 기준 좌우 비율 불균형 [%]'
+                    title = '척추 정렬 비율'
+                    metric = '척추 기준 좌우 비율 차이 [%]'
                     pair_name = '척추-어깨' if i == 0 else '척추-골반'
                     if val:
                         if normal_range[0] < val < normal_range[1]:
                             description = '양호'
                         else:
-                            description = '불균형 (왼쪽으로 치우침)' if val < 0 else '불균형 (오른쪽으로 치우침)'
+                            description = '왼쪽으로 편향됨' if val < 0 else '오른쪽으로 편향됨'
                     else:
                         description = "측정값 없음"
 
@@ -474,7 +474,7 @@ def generate_report(request, id):
                 result2  = f'{status_desc}{abs(result2)}{unit_name}'
             
             if alias == 'spinal_imbalance':
-                result = f'· 척추-어깨: {result1}, · 척추-골반: {result2}의 편향'
+                result = f'· 척추-어깨: {result1}의 편향, · 척추-골반: {result2}의 편향'
             else:
                 result = f'{result1} / {result2}'
             if all([ i['title'] != title for i in report_items ]):

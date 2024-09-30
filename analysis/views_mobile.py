@@ -102,6 +102,25 @@ def login_mobile(request):
 
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+def delete_user(request):
+    user = request.user
+    user_id = user.id
+
+    try:
+        user_info = UserInfo.objects.get(id=user_id)
+    except UserInfo.DoesNotExist:
+        return Response(
+            {
+                'message': 'user_not_found'
+            })
+
+    user_info.delete()
+    data_obj = {
+        'message': 'success',
+    }
+    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
 @swagger_auto_schema(
     method='post',
     operation_description="Login using session-key-generated QR code in mobile app",

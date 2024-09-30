@@ -124,7 +124,7 @@
                     {% else %}
                         <div class="description-value">{{ item.description }}</div>
                     {% endif %}
-                    <div class="result-value" style="font-size: {% if item.result|split:','|length > 1 %}0.8em{% else %}3em{% endif %};">
+                    <div class="result-value" style="font-size: {% if item.result|split:','|length > 1 %}1.5rem{% else %}3rem{% endif %};">
                         {% for result_item in item.result|split:',' %}
                             {{ result_item|trim }}<br>
                         {% endfor %}
@@ -176,7 +176,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Prepare trend data as JSON
             const trendDataDict = {{ trend_data_dict|safe }};
-            const showChart = (Object.values(trendDataDict)[0].dates.length >= 2)
             // Initialize charts for each item
             {% for item in report_items %}
                 var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
@@ -196,66 +195,58 @@
                     var yMin = minValue - margin;
                     var yMax = maxValue + margin;
 
-                    if (!showChart) {
-                        trendChart.style.display = 'none';
-                    } else {
-                        trendChart.style.display = 'block'; // Show the chart if there are enough data points
-                    }
-
-                    if (showChart){
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: trendDataDict['{{ item.alias }}'].dates,
-                                datasets: [{
-                                    label: trendDataDict['{{ item.alias }}'].part[0],
-                                    data: trendDataDict['{{ item.alias }}'].val1,
-                                    borderColor: 'rgba(255, 99, 132, 1)',
-                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                    borderWidth: 3,
-                                },
-                                {
-                                    label: trendDataDict['{{ item.alias }}'].part[1],
-                                    data: trendDataDict['{{ item.alias }}'].val2,
-                                    borderColor: 'rgba(54, 162, 235, 1)',
-                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                    borderWidth: 3,
-                                },
-                                {
-                                    label: '정상 범위', // Add this label to the legend
-                                    data: [], // No data for this dataset
-                                    borderColor: 'rgba(75, 192, 192, 1)',
-                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                    borderWidth: 0 // No border
-                                }]
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: trendDataDict['{{ item.alias }}'].part[0],
+                                data: trendDataDict['{{ item.alias }}'].val1,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
                             },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    x: { title: { display: true, text: '검사 일시' }},
-                                    y: {
-                                        title: { display: true, text: '측정 결과' },
-                                        min: yMin,  // Set the minimum value for y-axis
-                                        max: yMax   // Set the maximum value for y-axis
-                                    }
-                                },
-                                plugins: {
-                                    annotation: {
-                                        annotations: {
-                                            box1: {
-                                                type: 'box',
-                                                yMin: normalRange[0],
-                                                yMax: normalRange[1],
-                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                                borderColor: 'rgba(75, 192, 192, 1)',
-                                                borderWidth: 1
-                                            }
+                            {
+                                label: trendDataDict['{{ item.alias }}'].part[1],
+                                data: trendDataDict['{{ item.alias }}'].val2,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderWidth: 3,
+                            },
+                            {
+                                label: '정상 범위', // Add this label to the legend
+                                data: [], // No data for this dataset
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
                                         }
                                     }
                                 }
                             }
-                        });
-                    }
+                        }
+                    });
                 {% else %}
                     var trendData = trendDataDict['{{ item.alias }}'];
                     var values = trendData.values.concat(valueRange || []);;
@@ -269,60 +260,51 @@
                     var yMax = maxValue + margin;
                     var trendChart = document.getElementById('trendChart-{{ item.alias }}');
 
-                    if (!showChart) {
-                        trendChart.style.display = 'none';
-                    } else {
-                        trendChart.style.display = 'block'; // Show the chart if there are enough data points
-                    }
-
-                    if (showChart){
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: trendDataDict['{{ item.alias }}'].dates,
-                                datasets: [{
-                                    label: '{{ item.title }}',
-                                    data: trendDataDict['{{ item.alias }}'].values,
-                                    borderColor: 'rgba(255, 99, 132, 1)',
-                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                    borderWidth: 3,
-                                },
-                                {
-                                    label: '정상 범위', // Add this label to the legend
-                                    data: [], // No data for this dataset
-                                    borderColor: 'rgba(75, 192, 192, 1)',
-                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                    borderWidth: 0 // No border
-                                }]
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: '{{ item.title }}',
+                                data: trendDataDict['{{ item.alias }}'].values,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
                             },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    x: { title: { display: true, text: '검사 일시' }},
-                                    y: {
-                                        title: { display: true, text: '측정 결과' },
-                                        min: yMin,  // Set the minimum value for y-axis
-                                        max: yMax   // Set the maximum value for y-axis
-                                    }
-                                },
-                                plugins: {
-                                    annotation: {
-                                        annotations: {
-                                            box1: {
-                                                type: 'box',
-                                                yMin: normalRange[0],
-                                                yMax: normalRange[1],
-                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                                borderColor: 'rgba(75, 192, 192, 1)',
-                                                borderWidth: 1
-                                            }
+                            {
+                                label: '정상 범위', // Add this label to the legend
+                                data: [], // No data for this dataset
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
                                         }
                                     }
                                 }
                             }
-                        });
-                    }
-    
+                        }
+                    });
                 {% endif %}
             {% endfor %}
         });
