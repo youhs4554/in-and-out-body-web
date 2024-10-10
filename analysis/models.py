@@ -65,7 +65,7 @@ class OrganizationInfo(models.Model):
         return self.organization_name
 
 class UserInfo(AbstractUser):
-    user_type = models.CharField(max_length=1, default='S', null=False, blank=False)
+    user_type = models.CharField(max_length=1, null=False, blank=False)
     phone_number = models.CharField(max_length=100)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
     organization = models.ForeignKey(OrganizationInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values

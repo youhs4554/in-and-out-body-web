@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>로그인</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="stylesheet" href="{% static 'styles-auth.css' %}" />
     <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
@@ -14,15 +15,14 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-2RNGQ9YFFS');
     </script>
 </head>
 <body>
+    <div class="image-container"></div> <!-- Image Container Div -->
+    
     <div class="login-container">
-        <h2>로그인 해주세요.</h2>
-
-        <form method="post">
+        <form method="post" style="background: rgba(255, 255, 255, 0.7);">
             {% csrf_token %}
             <div>
                 <label for="username">ID</label>
@@ -34,18 +34,19 @@
             </div>
             <button type="submit">Login</button>
         </form>
-
+    
         <!-- Show error message if login fails -->
         {% if form.errors %}
-        <p style="color: red; text-align: center">
+        <p style="color: yellow; text-align: left">
             ID 또는 비밀번호가 일치하지 않습니다. 다시 시도해주세요!
         </p>
         {% endif %}
-
-        <!-- Add a button for sign-up -->
-        <div class="signup-link">
-            <p>계정이 없으신가요? <a href="{% url 'signup' %}" class="button">회원 가입</a></p>
+    
+        <div class="info-text">
+            <p style="color: white; font-size: large;">계정이 없으신가요? <a href="{% url 'signup' %}" class="button" style="color: lime;">회원 가입</a></p>
+            <p style="color: white; font-size: large;">비밀번호를 잊으셨나요? <a href="{% url 'password_reset' %}" class="button" style="color: lime;">비밀번호 재설정</a></p>
         </div>
     </div>
+
 </body>
 </html>

@@ -17,7 +17,7 @@ from drf_yasg import openapi
 from datetime import datetime, timedelta
 from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo
-from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm
+from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
 
@@ -52,6 +52,43 @@ def signup(request):
 
     return render(request, 'signup.html', {'form': form})
 
+def password_reset(request):
+    if request.method == 'POST':
+        form = CustomPasswordResetForm(request.POST)
+
+        # 1. 아이디 검증 (폼 유효성 검증 이전에 수행)
+        username = request.POST.get('username')
+        try:
+            user = UserInfo.objects.get(username=username)
+        except UserInfo.DoesNotExist:
+            # 존재하지 않는 아이디일 때 오류 메시지 추가
+            form.add_error('username', '존재하지 않는 아이디입니다.')
+            # 유효하지 않은 경우는 기존 에러 메시지와 함께 출력
+            return render(request, 'password_reset.html', {'form': form})
+
+        # 2. 폼 유효성 검증
+        if form.is_valid():
+            # 3. 비밀번호 변경
+            new_password = form.cleaned_data.get('new_password1')
+            user.password = make_password(new_password)
+            user.save()
+
+            return redirect('password_reset_done')
+
+        # 폼이 유효하지 않은 경우 오류 메시지를 표시
+        return render(request, 'password_reset.html', {'form': form})
+
+    # GET 요청일 경우 빈 폼을 렌더링
+    form = CustomPasswordResetForm()
+    return render(request, 'password_reset.html', {'form': form})
+
+def password_reset_done(request):
+    return render(request, 'password_reset_done.html')
+
+class CustomPasswordChangeView(PasswordChangeView):
+    form_class = CustomPasswordChangeForm
+    template_name = 'password_change.html'
+    success_url = '/password-change-done/'
 
 @login_required
 def register(request):
@@ -249,19 +286,35 @@ def get_organization_info(request):
 def no_result(request):
     return render(request, 'no_result.html')
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+import re
+
 @login_required
 def report(request):
-    user = request.user # 현재 유저
+    user = request.user  # 현재 유저
     error_message = None
-    selected_group = None
+    selected_group = request.session.get('selected_group', None)  # 세션에서 그룹 정보 가져오기
     user_results = []
 
+    if request.method == 'POST':
+        selected_group = request.POST.get('group')
+
+        if not selected_group:
+            return redirect('report')  # PRG 패턴을 위해 POST 처리 후 리다이렉트
+        else:
+            # 선택된 그룹을 세션에 저장하여 리다이렉트 후에도 유지
+            request.session['selected_group'] = selected_group
+            return redirect('report')  # 리다이렉트 후 GET 요청으로 변환
+        
+    print(user.user_type)
+
+    # GET 요청 처리 (리다이렉트 후 처리)
     if user.user_type == 'S':
         groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
         groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
-        if request.method == 'POST':
-            selected_group = request.POST.get('group')
 
+        if selected_group:
             # 정규 표현식으로 학년과 반 추출
             match = re.search(r"(\d+)학년 (\d+)반", selected_group)
             if match:
@@ -269,7 +322,6 @@ def report(request):
 
                 # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
                 for user in users:
-                    # 검사 결과 유효성 체크 로직
                     body_result_queryset = BodyResult.objects.filter(
                         user_id=user.id,
                         image_front_url__isnull=False,
@@ -283,39 +335,42 @@ def report(request):
                         'user': user,
                         'analysis_valid': analysis_valid
                     })
-            else:
-                error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
-                users = UserInfo.objects.none()
-    else:
+    elif user.user_type == 'O':
         groups = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name).values_list('department', named=True).distinct().order_by('department')
-        groups = [ g.department for g in groups if ((g.department is not None))]
-        if request.method == 'POST':
-            selected_group = request.POST.get('group')
+        groups = [g.department for g in groups if ((g.department is not None))]
 
-            if len(selected_group) > 0:
-                users = UserInfo.objects.filter(department=selected_group).order_by('student_name')
+        if selected_group:
+            users = UserInfo.objects.filter(department=selected_group).order_by('student_name')
 
-                # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
-                for user in users:
-                    # 검사 결과 유효성 체크 로직
-                    body_result_queryset = BodyResult.objects.filter(
-                        user_id=user.id,
-                        image_front_url__isnull=False,
-                        image_side_url__isnull=False,
-                    )
+            # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
+            for user in users:
+                body_result_queryset = BodyResult.objects.filter(
+                    user_id=user.id,
+                    image_front_url__isnull=False,
+                    image_side_url__isnull=False,
+                )
 
-                    analysis_valid = (len(body_result_queryset) > 0)
+                analysis_valid = (len(body_result_queryset) > 0)
 
-                    # user와 검사 결과 여부를 딕셔너리 형태로 추가
-                    user_results.append({
-                        'user': user,
-                        'analysis_valid': analysis_valid
-                    })
-            else:
-                error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
-                users = UserInfo.objects.none()
+                user_results.append({
+                    'user': user,
+                    'analysis_valid': analysis_valid
+                })
 
-    # Calculate the progress of analysis validity
+    if user.user_type == '' or len(user_results) == 0:
+        return render(request, 'report.html', {
+            'groups': groups,  # 그룹을 초기화
+            'user_results': [],  # 테이블 초기화
+            'selected_group': None,
+            'error_message': error_message,
+            'valid_count': 0,
+            'total_users': 0,
+            'progress_percentage': 0,
+            'is_registered': len(groups) > 0,
+        })
+    
+
+    # 분석 진행률 계산
     total_users = len(user_results)
     valid_count = sum(1 for result in user_results if result['analysis_valid'])
 
@@ -323,6 +378,15 @@ def report(request):
         progress_percentage = (valid_count / total_users) * 100
     else:
         progress_percentage = 0
+
+    if len(groups) == 0 or total_users == 0:
+        selected_group = None
+        user_results = [] # 테이블 초기화
+        selected_group = None
+        valid_count = 0
+        total_users = 0
+        progress_percentage = 0
+        error_message = '그룹이 선택되지 않았습니다. 그룹 선택 후 조회 해주세요!'
 
     return render(request, 'report.html', {
         'groups': groups,
@@ -332,6 +396,7 @@ def report(request):
         'valid_count': valid_count,
         'total_users': total_users,
         'progress_percentage': progress_percentage,
+        'is_registered': True,
     })
 
 # Example report items
@@ -438,14 +503,14 @@ def generate_report(request, id):
                     else:
                         description = "측정값 없음"
                 if alias == 'spinal_imbalance':
-                    title = '척추 정렬 비율'
+                    title = '척추 불균형'
                     metric = '척추 기준 좌우 비율 차이 [%]'
                     pair_name = '척추-어깨' if i == 0 else '척추-골반'
                     if val:
                         if normal_range[0] < val < normal_range[1]:
                             description = '양호'
                         else:
-                            description = '왼쪽으로 편향됨' if val < 0 else '오른쪽으로 편향됨'
+                            description = '왼쪽 편향' if val < 0 else '오른쪽 편향'
                     else:
                         description = "측정값 없음"
 
@@ -580,11 +645,6 @@ def generate_report(request, id):
 
 def policy(request):
     return render(request, 'policy.html')
-
-class CustomPasswordChangeView(PasswordChangeView):
-    form_class = CustomPasswordChangeForm
-    template_name = 'password_change.html'
-    success_url = '/password-change-done/'
 
 @swagger_auto_schema(
     method='post',

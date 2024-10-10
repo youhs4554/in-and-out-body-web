@@ -4,7 +4,7 @@
 
 {% block content %}
 <h2>검사결과를 확인해주세요</h2>
-<form method="post">
+<form id="dataForm" method="post">
     {% csrf_token %}
     <label for="group">그룹 선택</label>
     <select name="group" id="group">
@@ -16,9 +16,19 @@
     <button type="submit" class="button">조회</button>
 </form>
 
+<!-- Spinner Container: Initially Hidden -->
+<div id="spinnerContainer" class="spinner-container" style="display: none;">
+    <div class="spinner"></div>
+    <p>결과를 불러오는 중입니다...</p>
+</div>
+
 <!-- 에러 메시지 표시 -->
 {% if error_message %}
     <p style="color:red;">{{ error_message }}</p>
+{% endif %}
+
+{% if is_registered == False %}
+    <p style="color:red;">등록된 사용자 정보가 없습니다. 사용자 정보 등록을 먼저 진행해주세요 😅</p>
 {% endif %}
 
 {% if user_results %}
@@ -81,50 +91,164 @@
     </div>
 {% endif %}
 
-<!-- Include JavaScript for Pagination -->
+<!-- Include JavaScript for Pagination and Fetch -->
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const rowsPerPage = 10;
-        let currentPage = 1;
-        const userResultsTableBody = document.getElementById('userResultsTableBody');
-        const rows = Array.from(userResultsTableBody.querySelectorAll('tr'));
-        const totalPages = Math.ceil(rows.length / rowsPerPage);
+document.addEventListener("DOMContentLoaded", function() {
+    const rowsPerPage = 10;
+    let currentPage = 1;
+    const userResultsTableBody = document.getElementById('userResultsTableBody');
+    let rows = [];
+
+    if (userResultsTableBody) {
+        rows = Array.from(userResultsTableBody.querySelectorAll('tr'));
+    }
+
+    let totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    const prevButton = document.getElementById("prevPage");
+    const nextButton = document.getElementById("nextPage");
+
+    function updatePaginationButtons() {
+        prevButton.style.display = currentPage > 1 ? '' : 'none';
+        nextButton.style.display = currentPage < totalPages ? '' : 'none';
+    }
+
+    function displayTable(page) {
+        const startIndex = (page - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
         
-        const prevButton = document.getElementById("prevPage");
-        const nextButton = document.getElementById("nextPage");
-
-        function updatePaginationButtons() {
-            prevButton.style.display = currentPage > 1 ? '' : 'none';
-            nextButton.style.display = currentPage < totalPages ? '' : 'none';
-        }
-
-        function displayTable(page) {
-            const startIndex = (page - 1) * rowsPerPage;
-            const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
-            
-            rows.forEach((row, index) => {
-                row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
-            });
-
-            updatePaginationButtons();
-        }
-
-        prevButton.addEventListener("click", function() {
-            if (currentPage > 1) {
-                currentPage--;
-                displayTable(currentPage);
-            }
+        rows.forEach((row, index) => {
+            row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
         });
 
-        nextButton.addEventListener("click", function() {
-            if (currentPage < totalPages) {
-                currentPage++;
-                displayTable(currentPage);
-            }
-        });
+        updatePaginationButtons();
+    }
 
-        // Initial display
-        displayTable(currentPage);
+    prevButton.addEventListener("click", function() {
+        if (currentPage > 1) {
+            currentPage--;
+            displayTable(currentPage);
+        }
     });
+
+    nextButton.addEventListener("click", function() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            displayTable(currentPage);
+        }
+    });
+
+    // 큐로 세션 스토리지 관리
+    function loadQueue(key) {
+        const storedQueue = sessionStorage.getItem(key);
+        return storedQueue ? JSON.parse(storedQueue) : [];
+    }
+
+    function saveQueue(key, queue) {
+        sessionStorage.setItem(key, JSON.stringify(queue));
+    }
+
+    function enqueue(key, data, maxSize) {
+        let queue = loadQueue(key);
+        queue.push(data);
+        if (queue.length > maxSize) {
+            queue.shift();
+        }
+        saveQueue(key, queue);
+    }
+
+    function dequeue(key) {
+        let queue = loadQueue(key);
+        const data = queue.shift();
+        saveQueue(key, queue);
+        return data;
+    }
+
+    function peekQueue(key) {
+        const queue = loadQueue(key);
+        return queue.length > 0 ? queue[0] : null;
+    }
+
+    function clearQueue(key) {
+        sessionStorage.removeItem(key);
+    }
+
+    // 상태 저장
+    window.addEventListener("beforeunload", () => {
+        const selectedGroup = document.querySelector("#group").value;
+        const tableData = rows.map(row => row.outerHTML);
+        
+        enqueue("selectedGroupQueue", selectedGroup, 5);
+        enqueue("tableDataQueue", JSON.stringify(tableData), 5);
+        sessionStorage.setItem("currentPage", currentPage);
+    });
+
+    const savedGroup = dequeue("selectedGroupQueue");
+    const savedTableData = dequeue("tableDataQueue");
+    const savedPage = sessionStorage.getItem("currentPage");
+
+    if (savedGroup) {
+        document.querySelector("#group").value = savedGroup;
+    }
+
+    if (savedTableData) {
+        userResultsTableBody.innerHTML = JSON.parse(savedTableData).join('');
+    }
+
+    rows.length = 0;
+    Array.from(userResultsTableBody.querySelectorAll('tr')).forEach(row => rows.push(row));
+
+    totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    if (savedPage) {
+        currentPage = parseInt(savedPage);
+        displayTable(currentPage);
+    } else {
+        displayTable(currentPage);
+    }
+
+    window.addEventListener("beforeunload", () => {
+        clearQueue('selectedGroupQueue');
+        clearQueue('tableDataQueue');
+    });
+
+    const form = document.getElementById("dataForm");
+    const spinnerContainer = document.getElementById('spinnerContainer');
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();  // 기본 제출 동작 방지
+        spinnerContainer.style.display = 'flex';  // 스피너 표시
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.text())
+        .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                // 테이블 업데이트
+                document.getElementById('userResultsTableBody').innerHTML = doc.getElementById('userResultsTableBody').innerHTML;
+
+                // 새로운 rows 배열을 업데이트
+                rows = Array.from(document.getElementById('userResultsTableBody').querySelectorAll('tr'));
+                currentPage = 1;  // 페이지 초기화
+                displayTable(currentPage);  // 테이블 재표시
+                spinnerContainer.style.display = 'none';  // 스피너 숨김
+            })
+        .catch(error => {
+            console.error('Error:', error);
+            spinnerContainer.style.display = 'none';  // 오류 발생 시 스피너 숨김
+        });
+    });
+
+});
+
+// 세션스토리지 초기화
+window.addEventListener("beforeunload", () => {
+    sessionStorage.clear();
+});
+
 </script>
 {% endblock %}

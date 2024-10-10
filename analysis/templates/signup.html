@@ -7,13 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>회원 가입</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="stylesheet" href="{% static 'styles-auth.css' %}" />
     <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}" >
 </head>
 <body>
-    <div class="login-container">
-        <h2>회원 가입</h2>
+    <div class="image-container"></div> <!-- Image Container Div -->
 
-        <form method="post">
+    <div class="login-container">
+        <form method="post" style="background: rgba(255, 255, 255, 0.7);">
             {% csrf_token %}
             <div>
                 <label for="username">ID</label>
@@ -55,7 +56,9 @@
         </div>
         {% endif %}
 
-        <p>이미 계정이 있으신가요? <a href="{% url 'login' %}">로그인</a></p>
+        <div class="info-text">
+            <p style="color: white; font-size: large;">이미 계정이 있으신가요? <a href="{% url 'login' %}" class="button" style="color: lime;">로그인</a></p>
+        </div>
     </div>
 </body>
 </html>
