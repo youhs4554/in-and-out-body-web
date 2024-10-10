@@ -296,6 +296,7 @@ def report(request):
     error_message = None
     selected_group = request.session.get('selected_group', None)  # 세션에서 그룹 정보 가져오기
     user_results = []
+    groups = []
 
     if request.method == 'POST':
         selected_group = request.POST.get('group')
@@ -306,8 +307,6 @@ def report(request):
             # 선택된 그룹을 세션에 저장하여 리다이렉트 후에도 유지
             request.session['selected_group'] = selected_group
             return redirect('report')  # 리다이렉트 후 GET 요청으로 변환
-        
-    print(user.user_type)
 
     # GET 요청 처리 (리다이렉트 후 처리)
     if user.user_type == 'S':
