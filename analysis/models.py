@@ -209,7 +209,8 @@ class GaitResult(models.Model):
 
         # score 계산 (가중합 평균)
         if total_weight > 0:
-            self.score = total_sum / total_weight
+            *_, score_max_value, _ = self.get_code_info('score')
+            self.score = total_sum / total_weight * score_max_value
         else:
             self.score = None
 
