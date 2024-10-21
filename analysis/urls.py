@@ -70,8 +70,9 @@ urlpatterns = [
     path('', include('django_prometheus.urls')),
 
     ## 모바일 전용 API (모바일 이외의 용도로 사용하지 말것)
-    path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청
+    path('api/mobile/login-mobile/', views_mobile.login_mobile, name='mobile-auth-request_auth'), # 휴대폰 인증 요청 (이메일 인증 필요)
     path('api/mobile/login-mobile-qr/', views_mobile.login_mobile_qr, name='login_mobile_qr'), # 휴대폰에서 QR 인증 요청,
+    path('api/mobile/login-mobile-uuid/', views_mobile.login_mobile_uuid, name='mobile-auth-request_auth_uuid'), # 휴대폰 인증 요청 (UUID를 사용하여 인증-테스트 목적)
     path('api/mobile/user/get_user/', views_mobile.get_user, name='mobile-user-get_user'), # 사용자 정보 가져오기
     path('api/mobile/user/delete_user/', views_mobile.delete_user, name='mobile-user-delete_user'), # 사용자
     path('api/mobile/code/get_code/', views_mobile.get_code, name='mobile-code-get_code'), # 코드 정보 가져오기

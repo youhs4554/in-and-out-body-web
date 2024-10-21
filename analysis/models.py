@@ -36,6 +36,7 @@ class CodeInfo(models.Model):
 class AuthInfo(models.Model):
     uid = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=100)
+    uuid = models.CharField(max_length=100, null=True) # For test only
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class SessionInfo(models.Model):

@@ -81,9 +81,6 @@ def login_mobile(request):
     else:
         authorized_user_info.user_type = 'G'
 
-    if authorized_user_info.user_type in ['O', 'G']:
-        authorized_user_info.username = f'test_{authorized_user_info.id}'
-
     authorized_user_info.save()
 
     token = TokenObtainPairSerializer.get_token(authorized_user_info)
@@ -101,6 +98,83 @@ def login_mobile(request):
     auth_info.delete()
 
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Authenticate mobile device using uuid",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'uuid': openapi.Schema(type=openapi.TYPE_STRING,
+                                         description='Unique identifier for the mobile device'),
+        },
+        required=['uuid'],
+    ),
+    responses={
+        200: openapi.Response('Success', openapi.Schema(type=openapi.TYPE_OBJECT,
+                                                        properties={
+                                                            'data':
+                                                                openapi.Schema(
+                                                                    type=openapi.TYPE_OBJECT,
+                                                                    properties={
+                                                                        'user_info': openapi.Schema(
+                                                                            type=openapi.TYPE_OBJECT,
+                                                                            description='User information'),
+                                                                        'jwt_tokens': openapi.Schema(
+                                                                            type=openapi.TYPE_OBJECT,
+                                                                            properties={
+                                                                                'access_token': openapi.Schema(
+                                                                                    type=openapi.TYPE_STRING,
+                                                                                    description='Access token'),
+                                                                                'refresh_token': openapi.Schema(
+                                                                                    type=openapi.TYPE_STRING,
+                                                                                    description='Refresh token'),
+                                                                            }
+                                                                        ),
+                                                                    }
+                                                                ),
+                                                        })),
+        400: 'Bad Request; uuid is not provided in the request body',
+    }
+)
+@api_view(['POST'])
+def login_mobile_uuid(request):
+    uuid = request.data.get('uuid')
+    if not uuid:
+        return Response({'message': 'uuid_required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    auth_info = AuthInfo.objects.update_or_create(uuid=uuid)[0]
+
+    authorized_user_info, user_created = UserInfo.objects.update_or_create(
+        phone_number=auth_info.uuid,
+        defaults=dict(
+            username=auth_info.uuid,
+            password=make_password(os.environ['DEFAULT_PASSWORD']),
+        ))
+    
+    if authorized_user_info.school is not None:
+        authorized_user_info.user_type = 'S'
+    if authorized_user_info.organization is not None:
+        authorized_user_info.user_type = 'O'
+    else:
+        authorized_user_info.user_type = 'G'
+
+    authorized_user_info.save()
+
+    token = TokenObtainPairSerializer.get_token(authorized_user_info)
+    refresh_token = str(token)
+    access_token = str(token.access_token)
+
+    data_obj = {
+        'user_info': parse_userinfo(authorized_user_info),
+        'jwt_tokens': {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        },
+    }
+
+    return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 def delete_user(request):
