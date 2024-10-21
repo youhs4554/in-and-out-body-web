@@ -31,6 +31,7 @@ class CodeInfo(models.Model):
         null=True, blank=True,
         default=list,
     )
+    direction = models.CharField(max_length=10, choices=[('positive', 'Positive'), ('negative', 'Negative')], null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 
 class AuthInfo(models.Model):
@@ -136,6 +137,82 @@ class GaitResult(models.Model):
 
     def __str__(self):
         return f"GaitResult for {self.user.username} at {self.created_dt}"
+
+    def get_code_info(self, code_id):
+        """CodeInfo 테이블에서 특정 code_id에 해당하는 normal_min_value, normal_max_value, min_value, max_value, direction을 가져옴"""
+        try:
+            code_info = CodeInfo.objects.get(code_id=code_id)
+            return (code_info.normal_min_value, code_info.normal_max_value,
+                    code_info.min_value, code_info.max_value, code_info.direction)
+        except CodeInfo.DoesNotExist:
+            return None, None, None, None, None
+
+    def get_code_info(self, code_id):
+        """CodeInfo 테이블에서 특정 code_id에 해당하는 normal_min_value, normal_max_value, min_value, max_value, direction을 가져옴"""
+        try:
+            code_info = CodeInfo.objects.get(code_id=code_id)
+            return (code_info.normal_min_value, code_info.normal_max_value,
+                    code_info.min_value, code_info.max_value, code_info.direction)
+        except CodeInfo.DoesNotExist:
+            return None, None, None, None, None
+
+    def calculate_normalized_score(self, value, code_id):
+        """normal_min_value, normal_max_value, min_value, max_value, direction을 이용해 점수를 계산 (clipping 추가)"""
+        normal_min, normal_max, min_value, max_value, direction = self.get_code_info(code_id)
+        if value is None or normal_min is None or normal_max is None or direction is None:
+            return None
+
+        # Clipping: value가 min_value와 max_value 범위를 벗어나면 값을 제한
+        if value < min_value:
+            value = min_value
+        elif value > max_value:
+            value = max_value
+
+        # normal_range 내에 있으면 1점 부여
+        if normal_min <= value <= normal_max:
+            return 1
+
+        # direction에 따른 global min/max 점수 계산
+        if direction == 'positive':
+            # 클수록 좋은 경우: value가 min_value에 가까우면 0, max_value에 가까우면 1
+            return (value - min_value) / (normal_min - min_value)
+
+        elif direction == 'negative':
+            # 작을수록 좋은 경우: value가 max_value에 가까우면 0, min_value에 가까우면 1
+            return -1 * (value - normal_max) / (max_value - normal_max) + 1
+
+    def calculate_score(self):
+        total_sum = 0
+
+        # velocity에 대한 정규화 점수 계산 (code_id는 실제로 대체해야 함)
+        velocity_score = self.calculate_normalized_score(self.velocity, 'velocity')
+        if velocity_score is not None:
+            total_sum += velocity_score * 2  # velocity의 가중치는 2
+
+        # 나머지 필드들에 대한 정규화 점수 계산
+        fields_with_codes = [
+            (self.stride_len_l, 'stride_len_l'),
+            (self.stride_len_r, 'stride_len_r'),
+            (self.swing_perc_l, 'swing_perc_l'),
+            (self.swing_perc_r, 'swing_perc_r'),
+            (self.stance_perc_l, 'stance_perc_l'),
+            (self.stance_perc_r, 'stance_perc_r'),
+            (self.d_supp_perc_l, 'd_supp_perc_l'),
+            (self.d_supp_perc_r, 'd_supp_perc_r')
+        ]
+
+        for field, code_id in fields_with_codes:
+            field_score = self.calculate_normalized_score(field, code_id)
+            if field_score is not None:
+                total_sum += field_score
+
+        # score 계산 (가중합 평균)
+        self.score = total_sum
+
+    def save(self, *args, **kwargs):
+        # score 계산 후 저장
+        self.calculate_score()
+        super().save(*args, **kwargs)
 
 class BodyResult(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
