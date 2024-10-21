@@ -302,7 +302,10 @@ def delete_gait_result(request):
     if not current_result:
         return Response({"message": "gait_result_not_found"},)
     current_result.delete()
-    return Response({'data' : {'message': 'gait_result_deleted', 'status': 200}, 'message': 'gait_result_deleted', 'status': 200})
+
+    # Serialize the GaitResult objects
+    serializer = GaitResultSerializer(current_result)
+    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
 @swagger_auto_schema(
     method='post',
@@ -327,4 +330,7 @@ def delete_body_result(request):
     if not current_result:
         return Response({"message": "body_result_not_found"},)
     current_result.delete()
-    return Response({'data' : {'message': 'body_result_deleted', 'status': 200}, 'message': 'body_result_deleted', 'status': 200})
+
+    # Serialize the BodyResult objects
+    serializer = BodyResultSerializer(current_result)
+    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
