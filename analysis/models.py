@@ -152,14 +152,15 @@ class GaitResult(models.Model):
         try:
             code_info = CodeInfo.objects.get(code_id=code_id)
             return (code_info.normal_min_value, code_info.normal_max_value,
+                    code_info.caution_min_value, code_info.caution_max_value,
                     code_info.min_value, code_info.max_value, code_info.direction)
         except CodeInfo.DoesNotExist:
-            return None, None, None, None, None
+            return None, None, None, None, None, None, None
 
     def calculate_normalized_score(self, value, code_id):
         """normal_min_value, normal_max_value, min_value, max_value, direction을 이용해 점수를 계산 (clipping 추가)"""
-        normal_min, normal_max, min_value, max_value, direction = self.get_code_info(code_id)
-        if value is None or normal_min is None or normal_max is None or direction is None:
+        normal_min, normal_max, caution_min, caution_max, min_value, max_value, direction = self.get_code_info(code_id)
+        if value is None or normal_min is None or normal_max is None or caution_min is None or caution_max is None or direction is None:
             return None
 
         # Clipping: value가 min_value와 max_value 범위를 벗어나면 값을 제한
@@ -171,10 +172,20 @@ class GaitResult(models.Model):
         # direction에 따른 global min/max 점수 계산
         if direction == 'positive':
             # 클수록 좋은 경우: value가 min_value에 가까우면 0, max_value에 가까우면 1
-            score = (value - min_value) / (max_value - min_value)
+            if min_value <= value < caution_max:
+                score = 0.5 * (value - min_value) / (caution_min - min_value)
+            elif caution_min <= value < normal_min:
+                score = 0.3 * (value - caution_min) / (normal_min - caution_min) + 0.5
+            elif normal_min <= value < max_value:
+                score = 0.2 * (value - normal_min) / (max_value - normal_min) + 0.8
         elif direction == 'negative':
             # 작을수록 좋은 경우: value가 max_value에 가까우면 0, min_value에 가까우면 1
-            score = (max_value - value) / (max_value - min_value)
+            if min_value <= value < normal_max:
+                score = -0.2 * (value - min_value) / (normal_max - min_value) + 1.0
+            elif normal_max <= value < caution_max:
+                score = -0.3 * (value - normal_max) / (caution_max - normal_max) + 0.8
+            elif caution_max <= value < max_value:
+                score = -0.5 * (value - caution_max) / (max_value - caution_max) + 0.5
 
         # score가 항상 0과 1 사이의 값이 되도록 보장
         return max(0, min(score, 1))
