@@ -168,26 +168,26 @@ class GaitResult(models.Model):
         elif value > max_value:
             value = max_value
 
-        # normal_range 내에 있으면 1점 부여
-        if normal_min <= value <= normal_max:
-            return 1
-
         # direction에 따른 global min/max 점수 계산
         if direction == 'positive':
             # 클수록 좋은 경우: value가 min_value에 가까우면 0, max_value에 가까우면 1
-            return (value - min_value) / (normal_min - min_value)
-
+            score = (value - min_value) / (max_value - min_value)
         elif direction == 'negative':
             # 작을수록 좋은 경우: value가 max_value에 가까우면 0, min_value에 가까우면 1
-            return -1 * (value - normal_max) / (max_value - normal_max) + 1
+            score = (max_value - value) / (max_value - min_value)
+
+        # score가 항상 0과 1 사이의 값이 되도록 보장
+        return max(0, min(score, 1))
 
     def calculate_score(self):
         total_sum = 0
+        total_weight = 0
 
         # velocity에 대한 정규화 점수 계산 (code_id는 실제로 대체해야 함)
         velocity_score = self.calculate_normalized_score(self.velocity, 'velocity')
         if velocity_score is not None:
             total_sum += velocity_score * 2  # velocity의 가중치는 2
+            total_weight += 2
 
         # 나머지 필드들에 대한 정규화 점수 계산
         fields_with_codes = [
@@ -205,9 +205,10 @@ class GaitResult(models.Model):
             field_score = self.calculate_normalized_score(field, code_id)
             if field_score is not None:
                 total_sum += field_score
+                total_weight += 1
 
         # score 계산 (가중합 평균)
-        self.score = total_sum
+        self.score = total_sum / total_weight
 
     def save(self, *args, **kwargs):
         # score 계산 후 저장
