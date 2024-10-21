@@ -317,7 +317,8 @@ def report(request):
             # 정규 표현식으로 학년과 반 추출
             match = re.search(r"(\d+)학년 (\d+)반", selected_group)
             if match:
-                users = UserInfo.objects.filter(student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
+                users = UserInfo.objects.filter(school__school_name=user.school.school_name, 
+                                                student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
 
                 # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
                 for user in users:
@@ -339,7 +340,8 @@ def report(request):
         groups = [g.department for g in groups if ((g.department is not None))]
 
         if selected_group:
-            users = UserInfo.objects.filter(department=selected_group).order_by('student_name')
+            users = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name, 
+                                            department=selected_group).order_by('student_name')
 
             # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
             for user in users:

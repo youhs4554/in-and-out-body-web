@@ -278,3 +278,53 @@ def get_body_result(request):
     # Serialize the GaitResult objects
     serializer = BodyResultSerializer(body_results, many=True)
     return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Delete gait result using gait_id",
+    manual_parameters=[
+        openapi.Parameter('id', openapi.IN_QUERY, description="gait id", type=openapi.TYPE_INTEGER),
+    ],
+    responses={
+        200: 'Success',
+        400: 'Bad Request; gait_id is not provided in the request body',
+    },
+    tags=['mobile']
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_gait_result(request):
+    user_id = request.user.id
+    gait_id = request.query_params.get('id', None)
+    if not gait_id:
+        return Response({'data': {'message': 'gait_id_required', 'status': 400}})
+    current_result = GaitResult.objects.filter(user_id=user_id, id=gait_id).first()
+    if not current_result:
+        return Response({"message": "gait_result_not_found"},)
+    current_result.delete()
+    return Response({'data' : {'message': 'gait_result_deleted', 'status': 200}, 'message': 'gait_result_deleted', 'status': 200})
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Delete body result using body_id",
+    manual_parameters=[
+        openapi.Parameter('id', openapi.IN_QUERY, description="body id", type=openapi.TYPE_INTEGER),
+    ],
+    responses={
+        200: 'Success',
+        400: 'Bad Request; body_id is not provided in the request body',
+    },
+    tags=['mobile']
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_body_result(request):
+    user_id = request.user.id
+    body_id = request.query_params.get('id', None)
+    if not body_id:
+        return Response({'data': {'message': 'body_id_required', 'status': 400}})
+    current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
+    if not current_result:
+        return Response({"message": "body_result_not_found"},)
+    current_result.delete()
+    return Response({'data' : {'message': 'body_result_deleted', 'status': 200}, 'message': 'body_result_deleted', 'status': 200})
