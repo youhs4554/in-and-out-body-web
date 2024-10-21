@@ -213,9 +213,6 @@ class GaitResult(models.Model):
         else:
             self.score = None
 
-        # score 계산 (가중합 평균)
-        self.score = total_sum / total_weight
-
     def save(self, *args, **kwargs):
         # score 계산 후 저장
         self.calculate_score()
