@@ -299,7 +299,7 @@ def get_gait_result(request):
         gait_results = GaitResult.objects.filter(
             user_id=user_id,
             created_dt__lte=current_result.created_dt
-        ).order_by('-created_dt')[:7]
+        ).order_by('-created_dt')[:6]
     else:
         if not gait_results.exists():
             return Response({"message": "gait_result_not_found"}, status=status.HTTP_200_OK)
