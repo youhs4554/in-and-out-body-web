@@ -173,7 +173,7 @@ class GaitResult(models.Model):
         if direction == 'positive':
             # 클수록 좋은 경우: value가 min_value에 가까우면 0, max_value에 가까우면 1
             if min_value <= value < caution_max:
-                score = 0.5 * (value - min_value) / (caution_min - min_value)
+                score = 0.6 * (value - min_value) / (caution_min - min_value)
             elif caution_min <= value < normal_min:
                 score = 0.3 * (value - caution_min) / (normal_min - caution_min) + 0.5
             elif normal_min <= value < max_value:
@@ -183,7 +183,7 @@ class GaitResult(models.Model):
             if min_value <= value < normal_max:
                 score = -0.2 * (value - min_value) / (normal_max - min_value) + 1.0
             elif normal_max <= value < caution_max:
-                score = -0.3 * (value - normal_max) / (caution_max - normal_max) + 0.8
+                score = -0.2 * (value - normal_max) / (caution_max - normal_max) + 0.8
             elif caution_max <= value < max_value:
                 score = -0.5 * (value - caution_max) / (max_value - caution_max) + 0.5
 
@@ -194,14 +194,9 @@ class GaitResult(models.Model):
         total_sum = 0
         total_weight = 0
 
-        # velocity에 대한 정규화 점수 계산 (code_id는 실제로 대체해야 함)
-        velocity_score = self.calculate_normalized_score(self.velocity, 'velocity')
-        if velocity_score is not None:
-            total_sum += velocity_score * 2  # velocity의 가중치는 2
-            total_weight += 2
-
         # 나머지 필드들에 대한 정규화 점수 계산
         fields_with_codes = [
+            (self.velocity, 'velocity'),
             (self.stride_len_l, 'stride_len_l'),
             (self.stride_len_r, 'stride_len_r'),
             (self.swing_perc_l, 'swing_perc_l'),
@@ -215,8 +210,12 @@ class GaitResult(models.Model):
         for field, code_id in fields_with_codes:
             field_score = self.calculate_normalized_score(field, code_id)
             if field_score is not None:
-                total_sum += field_score
-                total_weight += 1
+                if field in ['velocity', 'stride_len_l', 'stride_len_r']:
+                    total_sum += field_score * 2  # 가중치 2
+                    total_weight += 2
+                else:
+                    total_sum += field_score
+                    total_weight += 1
 
         # score 계산 (가중합 평균)
         if total_weight > 0:
