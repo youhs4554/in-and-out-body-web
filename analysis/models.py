@@ -245,8 +245,9 @@ class BodyResult(models.Model):
     forward_head_angle = models.FloatField(null=True)
     scoliosis_shoulder_ratio = models.FloatField(null=True)
     scoliosis_hip_ratio = models.FloatField(null=True)
-    image_front_url = models.CharField(max_length=100, null=True)
-    image_side_url = models.CharField(max_length=100, null=True)
+    # S3 미리 서명 URL 갱신 시 컬럼 길이 제한으로 짤려서 들어감
+    image_front_url = models.CharField(max_length=300, null=True) # 수정
+    image_side_url = models.CharField(max_length=300, null=True)  # 수정
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

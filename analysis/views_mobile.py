@@ -15,6 +15,8 @@ from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
 import pytz
+from django.core.paginator import Paginator # 페이지네이션
+from concurrent.futures import ThreadPoolExecutor # 병렬 처리
 kst = pytz.timezone('Asia/Seoul')
 
 @swagger_auto_schema(
@@ -312,10 +314,43 @@ def get_gait_result(request):
 # group_id 들에 대한 CodeInfo 정보 반환
 # @param String? id : GaitResult의 id
 # 수정이력 : 240903 BS 작성
+# 수정이력 : 241203 - 페이지 네이션 추가
+@swagger_auto_schema(
+    method='get',
+    operation_description="""select body result list
+    - page: page number. default 1
+
+    """,
+    manual_parameters=[
+        openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
+    ],
+    responses={
+        200: openapi.Response(
+            description="Success",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    "data": openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_OBJECT, description="Result object (details omitted)")
+                    ),
+                    "total_pages": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of pages."),
+                    "current_page": openapi.Schema(type=openapi.TYPE_INTEGER, description="Current page number."),
+                    "total_items": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of items."),
+                },
+            )
+        ),
+        400: 'Bad Request; page number out of range',
+    },
+    tags=['mobile']
+)
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def get_body_result(request):
     user_id = request.user.id
+    page_size = 10                          # 한 페이지에 보여줄 개수
+    page = request.GET.get("page", 1)       # 만약 GET 요청에 아무런 정보가 없으면 default 1페이지로 설정
+
     body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
     body_id = request.query_params.get('id', None)
     if body_id is not None:
@@ -330,28 +365,65 @@ def get_body_result(request):
     else:
         if not body_results.exists():
             return Response({"message": "body_result_not_found"}, status=status.HTTP_200_OK)
+        
+    paginator = Paginator(body_results, page_size)  # 페이지네이터 생성
+
+    try:
+        currnet_page = paginator.page(page)         # 해당 페이지의 객체를 10개씩 가져옴
+    except:
+        return Response({"message": "page number out of range"}, status=status.HTTP_400_BAD_REQUEST)
+
+    minimal_body_results = currnet_page.object_list # 현재 페이지의 객체의 정보를 대입
 
     # 수정된 body_results를 리스트로 저장
     updated_body_results = []
-    for body_result in body_results:
+
+    # for body_result in minimal_body_results:
+    #     created_dt = body_result.created_dt.strftime('%Y%m%dT%H%M%S%f')
+
+    #     # Presigned URL 생성 (일정 시간 동안)
+    #     body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
+    #     body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
+
+    #     if requests.get(body_result.image_front_url).status_code in [400, 404]:
+    #         body_result.image_front_url = None
+    #     if requests.get(body_result.image_side_url).status_code in [400, 404]:
+    #         body_result.image_side_url = None
+
+    #     updated_body_results.append(body_result)
+
+    def process_body_result(body_result):
+        # Presigned URL 생성 및 상태 확인.
         created_dt = body_result.created_dt.strftime('%Y%m%dT%H%M%S%f')
-        # Presigned URL 생성 (일정 시간 동안)
         body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
         body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
-
+        
+        # URL 검증
         if requests.get(body_result.image_front_url).status_code in [400, 404]:
             body_result.image_front_url = None
         if requests.get(body_result.image_side_url).status_code in [400, 404]:
             body_result.image_side_url = None
 
-        updated_body_results.append(body_result)
+        return body_result
 
+    # 병렬 처리로 minimal_body_results 순회
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        updated_body_results = list(executor.map(process_body_result, minimal_body_results))
     # 모든 객체를 한 번에 업데이트
     BodyResult.objects.bulk_update(updated_body_results, ['image_front_url', 'image_side_url'])
 
     # Serialize the GaitResult objects
     serializer = BodyResultSerializer(body_results, many=True)
-    return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
+    # 페이지네이션 INFO 및 정보 가공
+    response_data = {
+        'data': serializer.data,
+        'total_pages': paginator.num_pages if body_id is None else 1,
+        'current_page': int(page) if body_id is None else 1,
+        'total_items': paginator.count if body_id is None else len(body_results)
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 @swagger_auto_schema(
     method='post',

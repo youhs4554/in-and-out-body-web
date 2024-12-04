@@ -136,6 +136,7 @@ def register(request):
                                 user_display_name=f"{school_info.school_name} {row['학년']}학년 {row['반']}반 {row['번호']}번 {row['이름']}",
                                 organization=None,
                                 department=None,
+                                year=dt.now().year # 현재 년도 int 값으로 저장 
                             ),
                         )
                         users.append({
@@ -172,6 +173,7 @@ def register(request):
                                 user_type=user_type,
                                 user_display_name=f"{organization_info.organization_name} {row['이름']}",
                                 school=None,
+                                year=dt.now().year # 현재 년도 int 값으로 저장
                             ),
                         )
                         users.append({
@@ -310,6 +312,7 @@ def report(request):
 
     # GET 요청 처리 (리다이렉트 후 처리)
     if user.user_type == 'S':
+        # 학교별 학년/반 정보 가져오기 -> select 태그에 들어가는 값
         groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
         groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
 
@@ -324,7 +327,7 @@ def report(request):
                 for user in users:
                     body_result_queryset = BodyResult.objects.filter(
                         user_id=user.id,
-                        image_front_url__isnull=False,
+                        image_front_url__isnull=False, # 만약 전면, 사이드 이미지가 없는 경우는 쿼리 결과에서 제외됨
                         image_side_url__isnull=False,
                     )
 
@@ -423,23 +426,51 @@ def generate_report(request, id):
     max_count = 20
     body_info_queryset = CodeInfo.objects.filter(group_id='01').order_by('seq_no')
 
-    # Filter records from the last 3 months
+
     body_result_queryset = BodyResult.objects.filter(
-        user_id=id, 
+        user_id=id,
         image_front_url__isnull=False,
         image_side_url__isnull=False,
     )
-    body_result_queryset = body_result_queryset.order_by('created_dt')[max(0, len(body_result_queryset)-int(max_count)):]
 
+    # body result 최신 순 정렬 후 날짜만 뽑아오기
+    body_result_queryset = body_result_queryset.order_by('created_dt')[max(0, len(body_result_queryset)-int(max_count)):]
 
     if len(body_result_queryset) == 0:
         return render(request, 'no_result.html', status=404)
+
     body_result_latest = body_result_queryset[len(body_result_queryset)-1]
 
+    # body result에서 날짜만 뽑아서 정렬하기
+    result_dates = [result.created_dt.strftime('%Y-%m-%d %H:%M:%S') for result in body_result_queryset]
+    sorted_dates = sorted(result_dates, key=lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'), reverse=True)
+
+    # 사용자가 선택한 날짜 처리
+    selected_date = request.GET.get('selected_date')
+    selected_result = []
+
+    if selected_date:
+        # 전체 쿼리셋은 유지하면서 선택된 날짜의 결과만 latest로 설정
+        selected_result = [
+            result for result in body_result_queryset
+            if result.created_dt.strftime('%Y-%m-%d %H:%M:%S') == selected_date
+        ]
+        
+        if len(selected_result) == 0:
+            return render(request, 'no_result.html', status=404)
+        
+        # 선택된 날짜의 결과만 latest로 설정하고, 전체 쿼리셋은 유지
+        # selected_result의 순서를 맨 앞으로 가져오고, 나머지는 뒤에 배치
+        body_result_queryset = [result for result in body_result_queryset if result not in selected_result] + selected_result 
+        body_result_latest = selected_result[0]
+
+
     report_items = []
+
     for body_info in body_info_queryset:
         trend_data = []
         is_paired = False
+
         for body_result in body_result_queryset:
             body_code_id_ = body_info.code_id
             alias = body_info.code_id
@@ -640,6 +671,8 @@ def generate_report(request, id):
         'trend_data_dict': trend_data_dict,
         'image_front_url': generate_presigned_url(file_keys=['front', created_dt]),
         'image_side_url': generate_presigned_url(file_keys=['side', created_dt]),
+        'sorted_dates': sorted_dates, # 날짜 리스트
+        'selected_date': selected_date, # 선택한 날짜
     }
 
     return render(request, 'report_detail.html', context)
