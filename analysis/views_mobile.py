@@ -14,11 +14,13 @@ from analysis.helpers import generate_presigned_url, parse_userinfo
 from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
-from django.core.paginator import Paginator # 페이지네이션
-from concurrent.futures import ThreadPoolExecutor # 병렬 처리
-
 import pytz
+from django.core.paginator import Paginator  # 페이지네이션
+from concurrent.futures import ThreadPoolExecutor  # 병렬 처리
+from django.db.models import Subquery
+
 kst = pytz.timezone('Asia/Seoul')
+
 
 @swagger_auto_schema(
     method='post',
@@ -76,7 +78,7 @@ def login_mobile(request):
             username=auth_info.phone_number,
             password=make_password(os.environ['DEFAULT_PASSWORD']),
         ))
-    
+
     if authorized_user_info.school is not None:
         authorized_user_info.user_type = 'S'
     if authorized_user_info.organization is not None:
@@ -102,6 +104,7 @@ def login_mobile(request):
 
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
 
+
 @swagger_auto_schema(
     method='post',
     operation_description="Authenticate mobile device using uuid",
@@ -109,7 +112,7 @@ def login_mobile(request):
         type=openapi.TYPE_OBJECT,
         properties={
             'uuid': openapi.Schema(type=openapi.TYPE_STRING,
-                                         description='Unique identifier for the mobile device'),
+                                   description='Unique identifier for the mobile device'),
         },
         required=['uuid'],
     ),
@@ -145,7 +148,7 @@ def login_mobile_uuid(request):
     uuid = request.data.get('uuid')
     if not uuid:
         return Response({'message': 'uuid_required'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     auth_info = AuthInfo.objects.update_or_create(uuid=uuid)[0]
 
     authorized_user_info, user_created = UserInfo.objects.update_or_create(
@@ -154,7 +157,7 @@ def login_mobile_uuid(request):
             username=auth_info.uuid,
             password=make_password(os.environ['DEFAULT_PASSWORD']),
         ))
-    
+
     if authorized_user_info.school is not None:
         authorized_user_info.user_type = 'S'
     if authorized_user_info.organization is not None:
@@ -198,6 +201,7 @@ def delete_user(request):
     }
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
 
+
 @swagger_auto_schema(
     method='post',
     operation_description="Login using session-key-generated QR code in mobile app",
@@ -213,13 +217,15 @@ def delete_user(request):
         200: openapi.Response('Login Success',
                               openapi.Schema(type=openapi.TYPE_OBJECT, properties={
                                   'data':
-                               openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Session key'),
-                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
-            }
-        )})),
+                                      openapi.Schema(
+                                          type=openapi.TYPE_OBJECT,
+                                          properties={
+                                              'session_key': openapi.Schema(type=openapi.TYPE_STRING,
+                                                                            description='Session key'),
+                                              'message': openapi.Schema(type=openapi.TYPE_STRING,
+                                                                        description='Success message'),
+                                          }
+                                      )})),
         400: 'Bad Request; session_key is not provided in the request body',
         404: 'Not Found; session_key is not found',
     }
@@ -263,6 +269,7 @@ def get_user(request):
     }
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
 
+
 # group_id 들에 대한 CodeInfo 정보 반환
 # @param List group_id_list
 # 수정이력 : 240903 BS 작성
@@ -285,43 +292,16 @@ def get_code(request):
     data = serializer.data
     return Response({'data': data}, status=status.HTTP_200_OK)
 
+
 # 보행 결과 리스트 반환
 # @param String? id : GaitResult의 id
 # 수정이력 : 240903 BS 작성
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def get_gait_result(request):
-    user_id = request.user.id
-    gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
-    id = request.query_params.get('id', None)
-    if id is not None:
-        current_result = GaitResult.objects.filter(user_id=user_id, id=id).first()
-        if not current_result:
-            return Response({"message": "gait_result_not_found"},)
-
-        gait_results = GaitResult.objects.filter(
-            user_id=user_id,
-            created_dt__lte=current_result.created_dt
-        ).order_by('-created_dt')[:6]
-    else:
-        if not gait_results.exists():
-            return Response({"message": "gait_result_not_found"}, status=status.HTTP_200_OK)
-
-    # Serialize the GaitResult objects
-    serializer = GaitResultSerializer(gait_results, many=True)
-
-    return Response({'data': serializer.data})
-
-
-# group_id 들에 대한 CodeInfo 정보 반환
-# @param String? id : GaitResult의 id
-# 수정이력 : 240903 BS 작성
-# 수정이력 : 241203 - 페이지 네이션 추가
+# 수정이력 : 241205 - 페이지 네이션 추가
 @swagger_auto_schema(
     method='get',
-    operation_description="""select body result list
+    operation_description="""select gait result list
     - page: page number. default 1
-
+    - page_size: page size. default 10
     """,
     manual_parameters=[
         openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
@@ -336,7 +316,90 @@ def get_gait_result(request):
                 properties={
                     "data": openapi.Schema(
                         type=openapi.TYPE_ARRAY,
-                        items=openapi.Schema(type=openapi.TYPE_OBJECT, description="BodyResult object ...")
+                        items=openapi.Schema(type=openapi.TYPE_OBJECT, description="Result object")
+                    ),
+                    "total_pages": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of pages."),
+                    "current_page": openapi.Schema(type=openapi.TYPE_INTEGER, description="Current page number."),
+                    "total_items": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of items."),
+                    "items": openapi.Schema(type=openapi.TYPE_INTEGER,
+                                            description="Number of items in the current page."),
+                },
+            )
+        ),
+        400: 'Bad Request; page number out of range',
+    },
+    tags=['mobile']
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_gait_result(request):
+    user_id = request.user.id
+
+    page_size = request.GET.get("page_size", 10)  # 한 페이지에 보여줄 개수 - 가변적으로 설정 가능
+    page = request.GET.get("page", 1)  # 만약 GET 요청에 아무런 정보가 없으면 default 1페이지로 설정
+
+    gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
+
+    # 'id'가 존재하면 created_dt를 기준으로 이전 6개의 결과를 가져오고 내림차순으로 정렬
+    id = request.query_params.get('id', None)
+    if id is not None:
+        gait_results = GaitResult.objects.filter(
+            user_id=user_id,
+            created_dt__lte=Subquery(
+                GaitResult.objects.filter(id=id, user_id=user_id)
+                .values('created_dt')[:1]
+            )
+        ).order_by('-created_dt')[:6]
+    else:
+        if not gait_results.exists():
+            return Response({"message": "gait_result_not_found"}, status=status.HTTP_200_OK)
+
+    # 페이지네이터 선언
+    paginator = Paginator(gait_results, page_size)
+
+    try:
+        current_page = paginator.page(page)  # 해당 페이지의 객체를 가져옴
+    except:
+        return Response({"message": "page number out of range"}, status=status.HTTP_400_BAD_REQUEST)
+
+    minimal_gait_results = current_page.object_list  # 현재 페이지의 객체
+
+    # Serialize the GaitResult objects
+    serializer = GaitResultSerializer(minimal_gait_results, many=True)
+
+    return Response({
+        'data': serializer.data,  # 현재 페이지의 아이템 정보
+        'total_pages': paginator.num_pages,  # 전체 페이지 수
+        'current_page': int(page),  # 현재 페이지
+        'total_items': paginator.count,  # 전체 아이템 개수
+        'items': len(minimal_gait_results),  # 현재 페이지의 아이템 개수
+    }, status.HTTP_200_OK)
+
+
+# group_id 들에 대한 CodeInfo 정보 반환
+# @param String? id : GaitResult의 id
+# 수정이력 : 240903 BS 작성
+# 수정이력 : 241203 - 페이지 네이션 추가
+@swagger_auto_schema(
+    method='get',
+    operation_description="""select body result list
+    - page: page number. default 1
+    - page_size: page size. default 10
+    """,
+    manual_parameters=[
+        openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
+        openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(itmes)", type=openapi.TYPE_INTEGER,
+                          default=10),
+    ],
+    responses={
+        200: openapi.Response(
+            description="Success",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    "data": openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_OBJECT, description="Result object")
                     ),
                     "total_pages": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of pages."),
                     "current_page": openapi.Schema(type=openapi.TYPE_INTEGER, description="Current page number."),
@@ -405,7 +468,6 @@ def get_body_result(request):
     # 병렬 처리로 minimal_body_results 순회
     with ThreadPoolExecutor(max_workers=10) as executor:
         updated_body_results = list(executor.map(process_body_result, minimal_body_results))
-
     # 모든 객체를 한 번에 업데이트
     BodyResult.objects.bulk_update(updated_body_results, ['image_front_url', 'image_side_url'])
 
@@ -445,12 +507,13 @@ def delete_gait_result(request):
         return Response({'data': {'message': 'gait_id_required', 'status': 400}})
     current_result = GaitResult.objects.filter(user_id=user_id, id=gait_id).first()
     if not current_result:
-        return Response({"message": "gait_result_not_found"},)
+        return Response({"message": "gait_result_not_found"}, )
     current_result.delete()
 
     # Serialize the GaitResult objects
     serializer = GaitResultSerializer(current_result)
     return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
 
 @swagger_auto_schema(
     method='post',
@@ -473,7 +536,7 @@ def delete_body_result(request):
         return Response({'data': {'message': 'body_id_required', 'status': 400}})
     current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
     if not current_result:
-        return Response({"message": "body_result_not_found"},)
+        return Response({"message": "body_result_not_found"}, )
     current_result.delete()
 
     # Serialize the BodyResult objects
