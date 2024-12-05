@@ -419,40 +419,84 @@ def report_detail_protected(request):
     user_id = request.user.id
     return generate_report(request, user_id)
 
-def generate_report(request, id):
+
+def generate_report(request, id, report_id=None):
     max_count = 20
     body_info_queryset = CodeInfo.objects.filter(group_id='01').order_by('seq_no')
 
-    # Filter records from the last 3 months
+    # 해당 유저의 모든 검사 결과를 가져옴
     body_result_queryset = BodyResult.objects.filter(
-        user_id=id, 
+        user_id=id,
         image_front_url__isnull=False,
         image_side_url__isnull=False,
     )
-    body_result_queryset = body_result_queryset.order_by('created_dt')[max(0, len(body_result_queryset)-int(max_count)):]
 
+    # body result 최신 순 정렬 후 날짜만 뽑아오기
+    body_result_queryset = body_result_queryset.order_by('created_dt')[
+                           max(0, len(body_result_queryset) - int(max_count)):]
 
     if len(body_result_queryset) == 0:
         return render(request, 'no_result.html', status=404)
-    body_result_latest = body_result_queryset[len(body_result_queryset)-1]
+
+    body_result_latest = body_result_queryset[len(body_result_queryset) - 1]
+
+    # body result에서 날짜만 뽑아서 정렬하기
+    result_dates = [result.created_dt.strftime('%Y-%m-%d %H:%M:%S') for result in body_result_queryset]
+    sorted_dates = sorted(result_dates, key=lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'), reverse=True)
+
+    # 사용자가 선택한 날짜 처리
+    selected_date = request.GET.get('selected_date')
+    selected_result = []
+    select_report_date = None
+
+    if selected_date:
+        # 전체 쿼리셋은 유지하면서 선택된 날짜의 결과만 latest로 설정
+        selected_result = [
+            result for result in body_result_queryset
+            if result.created_dt.strftime('%Y-%m-%d %H:%M:%S') == selected_date
+        ]
+
+        if len(selected_result) == 0:
+            return render(request, 'no_result.html', status=404)
+
+        # 선택된 날짜의 결과만 latest로 설정하고, 전체 쿼리셋은 유지
+        # selected_result의 순서를 맨 앞으로 가져오고, 나머지는 뒤에 배치
+        body_result_queryset = [result for result in body_result_queryset if
+                                result not in selected_result] + selected_result
+        body_result_latest = selected_result[0]
+
+    elif report_id:
+        # report_id에 해당하는 BodyResult를 가져옴
+        tmp = list(BodyResult.objects.filter(id=report_id))
+
+        # body_result_queryset과 tmp의 차집합을 유지하고, tmp를 뒤에 추가
+        body_result_queryset = [result for result in body_result_queryset if result not in tmp] + tmp
+        select_report_date = body_result_queryset[-1].created_dt.astimezone(kst).strftime(
+            '%Y-%m-%d %H:%M:%S') if body_result_queryset else None
+
+    else:
+        select_report_date = body_result_latest.created_dt.astimezone(kst).strftime('%Y-%m-%d %H:%M:%S')
 
     report_items = []
+
     for body_info in body_info_queryset:
         trend_data = []
         is_paired = False
+
         for body_result in body_result_queryset:
             body_code_id_ = body_info.code_id
             alias = body_info.code_id
-            if 'leg_alignment' in body_code_id_ or 'back_knee' in body_code_id_  or 'scoliosis' in body_code_id_:
+            if 'leg_alignment' in body_code_id_ or 'back_knee' in body_code_id_ or 'scoliosis' in body_code_id_:
                 is_paired = True
                 if 'scoliosis' in body_code_id_:
                     code_parts = body_code_id_.split('_')
                     pair_names = ['shoulder', 'hip']
-                    paired_body_code_id_list = [ '_'.join([code_parts[0], pair, code_parts[2]]) for pair in pair_names ]
-                    
+                    paired_body_code_id_list = ['_'.join([code_parts[0], pair, code_parts[2]]) for pair in pair_names]
+
                 else:
                     pair_names = ['left', 'right']
-                    paired_body_code_id_list = [ f'{pair}_' + '_'.join(body_code_id_.split('_')[1:]) for pair in pair_names ]
+                    paired_body_code_id_list = [f'{pair}_' + '_'.join(body_code_id_.split('_')[1:]) for pair in
+                                                pair_names]
 
                 if 'leg_alignment' in body_code_id_:
                     alias = 'o_x_legs'
@@ -460,12 +504,13 @@ def generate_report(request, id):
                     alias = 'knee_angle'
                 if 'scoliosis' in body_code_id_:
                     alias = 'spinal_imbalance'
-                
+
                 trend_samples = [getattr(body_result, paired_body_code_id_list[0]),
-                                getattr(body_result, paired_body_code_id_list[1]),
-                                body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
+                                 getattr(body_result, paired_body_code_id_list[1]),
+                                 body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
             else:
-                trend_samples = [getattr(body_result, body_code_id_), body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
+                trend_samples = [getattr(body_result, body_code_id_),
+                                 body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S')]
             trend_data.append(trend_samples)
 
         if is_paired:
@@ -526,8 +571,8 @@ def generate_report(request, id):
                         status_desc += "왼쪽으로" + " "
                     else:
                         status_desc += "오른쪽으로" + " "
-                result1  = f'{status_desc}{abs(result1)}{unit_name}'
-            
+                result1 = f'{status_desc}{abs(result1)}{unit_name}'
+
             if not result2:
                 result2 = "?"
             else:
@@ -537,25 +582,26 @@ def generate_report(request, id):
                         status_desc += "왼쪽으로" + " "
                     else:
                         status_desc += "오른쪽으로" + " "
-                result2  = f'{status_desc}{abs(result2)}{unit_name}'
-            
+                result2 = f'{status_desc}{abs(result2)}{unit_name}'
+
             if alias == 'spinal_imbalance':
                 result = f'· 척추-어깨: {result1}의 편향, · 척추-골반: {result2}의 편향'
             else:
                 result = f'{result1} / {result2}'
-            if all([ i['title'] != title for i in report_items ]):
+            if all([i['title'] != title for i in report_items]):
                 report_items.append({
                     'title': title,
                     'alias': alias,
                     'result': result,
-                    'description' : description_list,
+                    'description': description_list,
                     'description_list': True,
                     'metric': metric,
-                    'summary': [ re.sub(r'\(.*?\)', '', x) for x in description_list ],
+                    'summary': [re.sub(r'\(.*?\)', '', x) for x in description_list],
                     'normal_range': [body_info.normal_min_value, body_info.normal_max_value],
                     'value_range': [body_info.min_value, body_info.max_value],
                     'trend': trend_data,
-                    'sections': { getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in ['outline', 'risk', 'improve', 'recommended']  }
+                    'sections': {getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in
+                                 ['outline', 'risk', 'improve', 'recommended']}
                 })
         else:
             result_val = getattr(body_result_latest, body_info.code_id)
@@ -570,7 +616,7 @@ def generate_report(request, id):
                 else:
                     description = "측정값 없음"
                 metric = '각도 [°]'
-            
+
             if alias == 'forward_head_angle':
                 if result:
                     description = '양호' if normal_range[0] < result < normal_range[1] else '거북목 진행형'
@@ -593,19 +639,20 @@ def generate_report(request, id):
                 else:
                     status_desc += " " + "(유의)"
 
-                result = f'{abs(result)}{unit_name}{status_desc}' # show absolute value
+                result = f'{abs(result)}{unit_name}{status_desc}'  # show absolute value
             report_items.append({
                 'title': body_info.code_name,
                 'alias': alias,
                 'result': result,
-                'description' : description,
+                'description': description,
                 'description_list': False,
                 'metric': metric,
                 'summary': re.sub(r'\(.*?\)', '', description),
                 'normal_range': normal_range,
                 'value_range': [body_info.min_value, body_info.max_value],
                 'trend': trend_data,
-                'sections': { getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in ['outline', 'risk', 'improve', 'recommended']  }
+                'sections': {getattr(body_info, f'title_{name}'): getattr(body_info, name) for name in
+                             ['outline', 'risk', 'improve', 'recommended']}
             })
 
     user = get_object_or_404(UserInfo, id=id)
@@ -618,7 +665,7 @@ def generate_report(request, id):
     for item in report_items:
         alias = item['alias']
         trend_data = item['trend']
-        
+
         if alias in ['spinal_imbalance', 'o_x_legs', 'knee_angle']:
             trend_data_dict[alias] = {
                 'val1': [value[0] for value in trend_data],  # 왼쪽 또는 상부
@@ -640,10 +687,13 @@ def generate_report(request, id):
         'trend_data_dict': trend_data_dict,
         'image_front_url': generate_presigned_url(file_keys=['front', created_dt]),
         'image_side_url': generate_presigned_url(file_keys=['side', created_dt]),
+        'sorted_dates': sorted_dates,  # 날짜 리스트
+        'selected_date': selected_date,  # 선택한 날짜
     }
 
-    return render(request, 'report_detail.html', context)
+    context['report_date'] = select_report_date
 
+    return render(request, 'report_detail.html', context)
 def policy(request):
     return render(request, 'policy.html')
 
