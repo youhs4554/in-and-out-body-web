@@ -14,87 +14,78 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'styles.css' %}"/>
-    <link rel="shortcut icon" type="image/png" href="{% static 'images/report-favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/report-favicon.ico' %}" >
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
     <script>
-        window.dataLayer = window.dataLayer || [];
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
 
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-
-        gtag('js', new Date());
-
-        gtag('config', 'G-2RNGQ9YFFS');
+    gtag('config', 'G-2RNGQ9YFFS');
     </script>
 
 </head>
 <body class="bg-gray-100 p-6">
-<div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <!-- 날짜 선택 드롭다운 -->
-        <form method="get" class="display: inline-block;">
-            <label for="selected_date" class="mr-2" style="display:inline-block">날짜 선택:</label>
-            <select name="selected_date" id="selected_date" onchange="this.form.submit()"
-                    style="display: inline-block;">
-                <option value="">-- 날짜를 선택하세요 --</option>
-                {% for date in sorted_dates %}
-                    <option value="{{ date }}"
-                            {% if date == selected_date or date == report_date %}selected{% endif %}>{{ date }}</option>
-                {% endfor %}
-            </select>
-        </form>
-        {% if user.user_type == 'S' %}
-            <h1 style="text-align:right; display:inline-block;">{{ user.school.school_name }} {{ user.student_grade }}
-                학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
-        {% elif user.user_type == 'O' %}
-            <h1 style="text-align:end; display:inline-block;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }}
-                님</h1>
-        {% else %}
-            <h1 style="text-align:end; display:inline-block;">(일반인 사용자) {{ user.student_name }} 님</h1>
-        {% endif %}
-    </div>
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <!-- 날짜 선택 드롭다운 -->
+                <form method="get" class="display: inline-block;">
+                    <label for="selected_date" class="mr-2" style="display:inline-block">날짜 선택:</label>
+                    <select name="selected_date" id="selected_date" onchange="this.form.submit()" style="display: inline-block;">
+                        <option value="">-- 날짜를 선택하세요 --</option>
+                        {% for date in sorted_dates %}
+                            <option value="{{ date }}" {% if date == selected_date or date == report_date %}selected{% endif %}>{{ date }}</option>
+                        {% endfor %}
+                </select>
+            </form>
+                {% if user.user_type == 'S' %}
+                    <h1 style="text-align:right; display:inline-block;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+                {% elif user.user_type == 'O' %}
+                <h1 style="text-align:end; display:inline-block;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
+                {% else %}
+                <h1 style="text-align:end; display:inline-block;">(일반인 사용자) {{ user.student_name }} 님</h1>
+                {% endif %}
+            </div>
 
-    <div class="main-title">체형 분석 결과</div>
+        <div class="main-title">체형 분석 결과</div>
 
-    <!-- Result Image -->
-    <div class="image-container">
-        <div class="image-block">
-            <p class="image-title">정면 이미지</p>
-            <div class="image-wrapper">
-                <img src="{{ image_front_url }}" alt="Front Image">
-                <div class="overlay-right">왼쪽</div>
-                <div class="overlay-left">오른쪽</div>
+        <!-- Result Image -->
+        <div class="image-container">
+            <div class="image-block">
+                <p class="image-title">정면 이미지</p>
+                <div class="image-wrapper">
+                    <img src="{{ image_front_url }}" alt="Front Image">
+                    <div class="overlay-right">왼쪽</div>
+                    <div class="overlay-left">오른쪽</div>
+                </div>
+            </div>
+            <div class="image-block">
+                <p class="image-title">측면 이미지</p>
+                <div class="image-wrapper">
+                    <img src="{{ image_side_url }}" alt="Side Image">
+                </div>
             </div>
         </div>
-        <div class="image-block">
-            <p class="image-title">측면 이미지</p>
-            <div class="image-wrapper">
-                <img src="{{ image_side_url }}" alt="Side Image">
-            </div>
-        </div>
-    </div>
 
 
-    <!-- 종합 평가 -->
-    <div class="mb-6">
-        <div class="summary-sub-title">
-            나의 체형 종합 평가
-            <span class="summary-info-icon"
-                  title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
+        <!-- 종합 평가 -->
+        <div class="mb-6">
+            <div class="summary-sub-title">
+                나의 체형 종합 평가
+                <span class="summary-info-icon" title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
                     ⓘ
                 </span>
-        </div>
-        <div class="summary-evaluation-container">
-            {% for item in report_items %}
+            </div>
+            <div class="summary-evaluation-container">
+                {% for item in report_items %}
 
-                <div class="summary-evaluation-row">
-                    <div class="summary-title">{{ item.title }}</div>
-                    <div class="summary-description">
-                        {% if item.description_list %}
+                    <div class="summary-evaluation-row">
+                        <div class="summary-title">{{ item.title }}</div>
+                        <div class="summary-description">
+                            {% if item.description_list %}
                             <!-- 배열일 경우, /로 연결 -->
                             <p>
                                 {% for summary_item in item.summary %}
@@ -103,175 +94,173 @@
                                     </span>{% if not forloop.last %} / {% endif %}
                                 {% endfor %}
                             </p>
-                        {% else %}
-                            {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
-                        {% endif %}
-                        {% if item.description_list %}
-                            <p>
-                                {% for result_item in item.result|split:',' %}
-                                    {{ result_item|trim }}<br>
-                                {% endfor %}
-                            </p>
-                        {% else %}
-                            <!-- item.result에 '정상' 또는 '양호'가 포함되었는지 검사 (배열이 아닐 경우에만 적용) -->
-                            <p style="color: {% if item.description_list is not defined %} {% if '정상' in item.result or '양호' in item.result %}green{% else %}orange{% endif %} {% endif %};">
-                                {% for result_item in item.result|split:',' %}
-                                    {{ result_item|trim }}<br>
-                                {% endfor %}
-                            </p>
-                        {% endif %}
+                            {% else %}
+                                {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
+                            {% endif %}
+                            {% if item.description_list %}
+                                <p>
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% else %}
+                                <!-- item.result에 '정상' 또는 '양호'가 포함되었는지 검사 (배열이 아닐 경우에만 적용) -->
+                                <p style="color: {% if item.description_list is not defined %} {% if '정상' in item.result or '양호' in item.result %}green{% else %}orange{% endif %} {% endif %};">
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% endif %}
+                        </div>
+                        <div class="summary-description">{{ item.metric }}</div>
                     </div>
-                    <div class="summary-description">{{ item.metric }}</div>
-                </div>
-                <hr class="summary-divider-line"/> <!-- Divider line -->
-            {% endfor %}
-        </div>
-    </div>
-    <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
-        건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.
-    </div>
-    <!-- Divider -->
-    <div class="divider"></div>
-
-    <!-- Report Cards for All Items -->
-    {% for item in report_items %}
-        <div class="main-title">체형 스캔</div>
-        <div class="sub-title">스캔 항목</div>
-
-        <div class="report-card">
-            <div class="left-content">
-                <div class="title">{{ item.title }}</div>
-                <div class="description-label">측정 결과 | {{ item.metric }}</div>
-                {% if item.description_list %}
-                    {% for description_item in item.description %}
-                        <div class="description-value">⭐️ {{ description_item }}</div>
-                    {% endfor %}
-                {% else %}
-                    <div class="description-value">{{ item.description }}</div>
-                {% endif %}
-                <div class="result-value"
-                     style="font-size: {% if item.result|split:','|length > 1 %}1.5rem{% else %}3rem{% endif %};">
-                    {% for result_item in item.result|split:',' %}
-                        {{ result_item|trim }}<br>
-                    {% endfor %}
-                </div>
-            </div>
-            <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
-        </div>
-
-
-        <!-- Line Chart -->
-        <div class="mb-6" id="trendChart-{{ item.alias }}">
-            <div class="sub-title">변화 추이 - {{ item.title }}</div>
-            <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
-        </div>
-
-        <!-- Section Contents (detailed explanation) -->
-        <div class="mb-6">
-            <div class="mb-6 p-4 border rounded-lg bg-white">
-                <h2 class="text-xl font-semibold mb-2">{{ item.title }}</h2>
-                {% for key, content in item.sections.items %}
-                    {% if key == '권장계획' %}
-                        <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
-                            <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
-                            {% for content_ in content %}
-                                <li class="text-sm text-gray-600">{{ content_|safe }}</li>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
-                            <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
-                            <p class="text-sm text-gray-600">{{ content|safe }}</p>
-                        </div>
-                    {% endif %}
-
+                    <hr class="summary-divider-line" /> <!-- Divider line -->
                 {% endfor %}
             </div>
         </div>
-
         <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
-            건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.
-        </div>
-
+            건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
         <!-- Divider -->
         <div class="divider"></div>
 
-    {% endfor %}
-</div>
+        <!-- Report Cards for All Items -->
+        {% for item in report_items %}
+            <div class="main-title">체형 스캔</div>
+            <div class="sub-title">스캔 항목</div>
 
-<script>
-    /** 정렬 함수 */
-    function sortTrendData(trendDataDict) {
-        // 날짜 포맷 함수 (yyyy-mm-dd)
-        function formatDate(date) {
-            const d = new Date(date);
-            const year = d.getFullYear();
-            const month = (d.getMonth() + 1).toString().padStart(2, '0'); // 1부터 시작
-            const day = d.getDate().toString().padStart(2, '0');
-            return `${year}-${month}-${day}`;
+            <div class="report-card">
+                <div class="left-content">
+                    <div class="title">{{ item.title }}</div>
+                    <div class="description-label">측정 결과 | {{ item.metric }}</div>
+                    {% if item.description_list %}
+                        {% for description_item in item.description %}
+                            <div class="description-value">⭐️ {{ description_item }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="description-value">{{ item.description }}</div>
+                    {% endif %}
+                    <div class="result-value" style="font-size: {% if item.result|split:','|length > 1 %}1.5rem{% else %}3rem{% endif %};">
+                        {% for result_item in item.result|split:',' %}
+                            {{ result_item|trim }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+                <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
+            </div>
+            
+
+            <!-- Line Chart -->
+            <div class="mb-6" id="trendChart-{{ item.alias }}">
+                <div class="sub-title">변화 추이 - {{ item.title }}</div>
+                <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
+            </div>
+
+            <!-- Section Contents (detailed explanation) -->
+            <div class="mb-6">
+                <div class="mb-6 p-4 border rounded-lg bg-white">
+                    <h2 class="text-xl font-semibold mb-2">{{ item.title }}</h2>
+                    {% for key, content in item.sections.items %}
+                        {% if key == '권장계획' %}
+                            <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
+                                <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
+                                {% for content_ in content %}
+                                    <li class="text-sm text-gray-600">{{ content_|safe }}</li>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
+                                <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
+                                <p class="text-sm text-gray-600">{{ content|safe }}</p>
+                            </div>
+                        {% endif %}
+
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+                건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+        {% endfor %}
+    </div>
+
+    <script>
+        /** 정렬 함수 */
+        function sortTrendData(trendDataDict) {
+            // 날짜 포맷 함수 (yyyy-mm-dd)
+            function formatDate(date) {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                const month = (d.getMonth() + 1).toString().padStart(2, '0'); // 1부터 시작
+                const day = d.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            // 각 항목의 데이터를 날짜 순서대로 정렬
+            Object.keys(trendDataDict).forEach(key => {
+                const data = trendDataDict[key];
+                const sortedIndices = data.dates
+                    .map((date, index) => ({ date: new Date(date), index }))
+                    .sort((a, b) => a.date - b.date) // 날짜 순으로 정렬
+                    .map(item => item.index); // 정렬된 인덱스 추출
+        
+                // 각 배열 값을 정렬된 순서에 따라 재배치
+                data.dates = sortedIndices.map(index => formatDate(data.dates[index])); // 날짜 형식 변환
+                if (data.val1) {
+                    data.val1 = sortedIndices.map(index => data.val1[index]);
+                }
+                if (data.val2) {
+                    data.val2 = sortedIndices.map(index => data.val2[index]);
+                }
+                if (data.values) {
+                    data.values = sortedIndices.map(index => data.values[index]);
+                }
+                if (data.part) {
+                    data.part = sortedIndices.map(index => data.part[index]);
+                }
+            });
+        
+            return trendDataDict;
         }
 
-        // 각 항목의 데이터를 날짜 순서대로 정렬
-        Object.keys(trendDataDict).forEach(key => {
-            const data = trendDataDict[key];
-            const sortedIndices = data.dates
-                .map((date, index) => ({date: new Date(date), index}))
-                .sort((a, b) => a.date - b.date) // 날짜 순으로 정렬
-                .map(item => item.index); // 정렬된 인덱스 추출
-
-            // 각 배열 값을 정렬된 순서에 따라 재배치
-            data.dates = sortedIndices.map(index => formatDate(data.dates[index])); // 날짜 형식 변환
-            if (data.val1) {
-                data.val1 = sortedIndices.map(index => data.val1[index]);
-            }
-            if (data.val2) {
-                data.val2 = sortedIndices.map(index => data.val2[index]);
-            }
-            if (data.values) {
-                data.values = sortedIndices.map(index => data.values[index]);
-            }
-            if (data.part) {
-                data.part = sortedIndices.map(index => data.part[index]);
-            }
-        });
-
-        return trendDataDict;
-    }
 
 
-    document.addEventListener('DOMContentLoaded', function () {
-        // Prepare trend data as JSON
-        const trendDataDict = sortTrendData({{ trend_data_dict|safe }});
-        // Initialize charts for each item
-        {% for item in report_items %}
-            var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
-            var normalRange = {{ item.normal_range|safe }}; // Extract the normal range
-            var valueRange = {{ item.value_range|safe }};   // Extract the value range
-            var trendChart = document.getElementById('trendChart-{{ item.alias }}');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prepare trend data as JSON
+            const trendDataDict = sortTrendData({{ trend_data_dict|safe }});
+            // Initialize charts for each item
+            {% for item in report_items %}
+                var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
+                var normalRange = {{ item.normal_range|safe }}; // Extract the normal range
+                var valueRange = {{ item.value_range|safe }};   // Extract the value range
+                var trendChart = document.getElementById('trendChart-{{ item.alias }}');
+                
+                {% if item.alias == 'spinal_imbalance' or item.alias == 'o_x_legs' or item.alias == 'knee_angle' %}
+                    var trendData = trendDataDict['{{ item.alias }}'];
+                    var values = trendData.val1.concat(trendData.val2 || []).concat(valueRange || []);
+    
+                    var minValue = Math.min(...values);
+                    var maxValue = Math.max(...values);
+    
+                    // Calculate margin
+                    var margin = 0.01 * (maxValue - minValue);
+                    var yMin = minValue - margin;
+                    var yMax = maxValue + margin;
 
-            {% if item.alias == 'spinal_imbalance' or item.alias == 'o_x_legs' or item.alias == 'knee_angle' %}
-                var trendData = trendDataDict['{{ item.alias }}'];
-                var values = trendData.val1.concat(trendData.val2 || []).concat(valueRange || []);
-
-                var minValue = Math.min(...values);
-                var maxValue = Math.max(...values);
-
-                // Calculate margin
-                var margin = 0.01 * (maxValue - minValue);
-                var yMin = minValue - margin;
-                var yMax = maxValue + margin;
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: trendDataDict['{{ item.alias }}'].dates,
-                        datasets: [{
-                            label: trendDataDict['{{ item.alias }}'].part[0],
-                            data: trendDataDict['{{ item.alias }}'].val1,
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            borderWidth: 3,
-                        },
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: trendDataDict['{{ item.alias }}'].part[0],
+                                data: trendDataDict['{{ item.alias }}'].val1,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
+                            },
                             {
                                 label: trendDataDict['{{ item.alias }}'].part[1],
                                 data: trendDataDict['{{ item.alias }}'].val2,
@@ -286,57 +275,57 @@
                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                 borderWidth: 0 // No border
                             }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            x: {title: {display: true, text: '검사 일시'}},
-                            y: {
-                                title: {display: true, text: '측정 결과'},
-                                min: yMin,  // Set the minimum value for y-axis
-                                max: yMax   // Set the maximum value for y-axis
-                            }
                         },
-                        plugins: {
-                            annotation: {
-                                annotations: {
-                                    box1: {
-                                        type: 'box',
-                                        yMin: normalRange[0],
-                                        yMax: normalRange[1],
-                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                        borderColor: 'rgba(75, 192, 192, 1)',
-                                        borderWidth: 1
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-            {% else %}
-                var trendData = trendDataDict['{{ item.alias }}'];
-                var values = trendData.values.concat(valueRange || []);;
+                    });
+                {% else %}
+                    var trendData = trendDataDict['{{ item.alias }}'];
+                    var values = trendData.values.concat(valueRange || []);;
+    
+                    var minValue = Math.min(...values);
+                    var maxValue = Math.max(...values);
+    
+                    // Calculate margin
+                    var margin = 0.01 * (maxValue - minValue);
+                    var yMin = minValue - margin;
+                    var yMax = maxValue + margin;
+                    var trendChart = document.getElementById('trendChart-{{ item.alias }}');
 
-                var minValue = Math.min(...values);
-                var maxValue = Math.max(...values);
-
-                // Calculate margin
-                var margin = 0.01 * (maxValue - minValue);
-                var yMin = minValue - margin;
-                var yMax = maxValue + margin;
-                var trendChart = document.getElementById('trendChart-{{ item.alias }}');
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: trendDataDict['{{ item.alias }}'].dates,
-                        datasets: [{
-                            label: '{{ item.title }}',
-                            data: trendDataDict['{{ item.alias }}'].values,
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            borderWidth: 3,
-                        },
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: '{{ item.title }}',
+                                data: trendDataDict['{{ item.alias }}'].values,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
+                            },
                             {
                                 label: '정상 범위', // Add this label to the legend
                                 data: [], // No data for this dataset
@@ -344,36 +333,36 @@
                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                 borderWidth: 0 // No border
                             }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            x: {title: {display: true, text: '검사 일시'}},
-                            y: {
-                                title: {display: true, text: '측정 결과'},
-                                min: yMin,  // Set the minimum value for y-axis
-                                max: yMax   // Set the maximum value for y-axis
-                            }
                         },
-                        plugins: {
-                            annotation: {
-                                annotations: {
-                                    box1: {
-                                        type: 'box',
-                                        yMin: normalRange[0],
-                                        yMax: normalRange[1],
-                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                        borderColor: 'rgba(75, 192, 192, 1)',
-                                        borderWidth: 1
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-            {% endif %}
-        {% endfor %}
-    });
-</script>
+                    });
+                {% endif %}
+            {% endfor %}
+        });
+    </script>    
 </body>
 </html>
