@@ -11,6 +11,21 @@ from PIL import Image
 import boto3
 from django.conf import settings
 
+# 전역 변수 S3 클라이언트 생성
+s3_client = None
+
+# boto3 반환 함수
+def get_s3_client():
+    global s3_client
+    if s3_client is None:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_S3_REGION_NAME
+        )
+    return s3_client
+
 def generate_file_key(*args):
     return '-'.join(*args)
 
@@ -18,12 +33,7 @@ def upload_image_to_s3(byte_string, file_keys):
     file_name = generate_file_key(file_keys) + '.png'
 
     # AWS S3 클라이언트 생성
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_S3_REGION_NAME
-    )
+    s3 = get_s3_client()
     
     # byte string을 이미지로 변환
     image_data = base64.b64decode(byte_string)
@@ -46,12 +56,7 @@ def generate_presigned_url(file_keys, expiration=settings.AWS_PRESIGNED_EXPIRATI
     file_name = generate_file_key(file_keys) + '.png'
 
     # AWS S3 클라이언트 생성
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_S3_REGION_NAME
-    )
+    s3 = get_s3_client()
     
     # presigned URL 생성
     try:

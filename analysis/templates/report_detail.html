@@ -30,13 +30,25 @@
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        {% if user.user_type == 'S' %}
-            <h1 style="text-align: end;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
-        {% elif user.user_type == 'O' %}
-            <h1 style="text-align: end;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
-        {% else %}
-            <h1 style="text-align: end;">(일반인 사용자) {{ user.student_name }} 님</h1>
-        {% endif %}
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <!-- 날짜 선택 드롭다운 -->
+                <form method="get" class="display: inline-block;">
+                    <label for="selected_date" class="mr-2" style="display:inline-block">날짜 선택:</label>
+                    <select name="selected_date" id="selected_date" onchange="this.form.submit()" style="display: inline-block;">
+                        <option value="">-- 날짜를 선택하세요 --</option>
+                        {% for date in sorted_dates %}
+                            <option value="{{ date }}" {% if date == selected_date or date == report_date %}selected{% endif %}>{{ date }}</option>
+                        {% endfor %}
+                </select>
+            </form>
+                {% if user.user_type == 'S' %}
+                    <h1 style="text-align:right; display:inline-block;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+                {% elif user.user_type == 'O' %}
+                <h1 style="text-align:end; display:inline-block;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
+                {% else %}
+                <h1 style="text-align:end; display:inline-block;">(일반인 사용자) {{ user.student_name }} 님</h1>
+                {% endif %}
+            </div>
 
         <div class="main-title">체형 분석 결과</div>
 
@@ -62,13 +74,14 @@
         <!-- 종합 평가 -->
         <div class="mb-6">
             <div class="summary-sub-title">
-                나의 체형 종합 평가 
+                나의 체형 종합 평가
                 <span class="summary-info-icon" title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
                     ⓘ
                 </span>
             </div>
             <div class="summary-evaluation-container">
                 {% for item in report_items %}
+
                     <div class="summary-evaluation-row">
                         <div class="summary-title">{{ item.title }}</div>
                         <div class="summary-description">
@@ -104,10 +117,9 @@
                     <hr class="summary-divider-line" /> <!-- Divider line -->
                 {% endfor %}
             </div>
-        </div>        
+        </div>
         <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
             건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
-
         <!-- Divider -->
         <div class="divider"></div>
 
@@ -176,9 +188,49 @@
     </div>
 
     <script>
+        /** 정렬 함수 */
+        function sortTrendData(trendDataDict) {
+            // 날짜 포맷 함수 (yyyy-mm-dd)
+            function formatDate(date) {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                const month = (d.getMonth() + 1).toString().padStart(2, '0'); // 1부터 시작
+                const day = d.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            // 각 항목의 데이터를 날짜 순서대로 정렬
+            Object.keys(trendDataDict).forEach(key => {
+                const data = trendDataDict[key];
+                const sortedIndices = data.dates
+                    .map((date, index) => ({ date: new Date(date), index }))
+                    .sort((a, b) => a.date - b.date) // 날짜 순으로 정렬
+                    .map(item => item.index); // 정렬된 인덱스 추출
+        
+                // 각 배열 값을 정렬된 순서에 따라 재배치
+                data.dates = sortedIndices.map(index => formatDate(data.dates[index])); // 날짜 형식 변환
+                if (data.val1) {
+                    data.val1 = sortedIndices.map(index => data.val1[index]);
+                }
+                if (data.val2) {
+                    data.val2 = sortedIndices.map(index => data.val2[index]);
+                }
+                if (data.values) {
+                    data.values = sortedIndices.map(index => data.values[index]);
+                }
+                if (data.part) {
+                    data.part = sortedIndices.map(index => data.part[index]);
+                }
+            });
+        
+            return trendDataDict;
+        }
+
+
+
         document.addEventListener('DOMContentLoaded', function() {
             // Prepare trend data as JSON
-            const trendDataDict = {{ trend_data_dict|safe }};
+            const trendDataDict = sortTrendData({{ trend_data_dict|safe }});
             // Initialize charts for each item
             {% for item in report_items %}
                 var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
