@@ -10,14 +10,15 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from analysis.helpers import generate_presigned_url, parse_userinfo
-from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo
+from analysis.helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3
+from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo, SchoolInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
 import pytz
 from django.core.paginator import Paginator  # 페이지네이션
 from concurrent.futures import ThreadPoolExecutor  # 병렬 처리
 from django.db.models import Subquery
+from datetime import datetime as dt
 
 kst = pytz.timezone('Asia/Seoul')
 
@@ -542,3 +543,104 @@ def delete_body_result(request):
     # Serialize the BodyResult objects
     serializer = BodyResultSerializer(current_result)
     return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="""Create a new body result record - mobile only
+                            - header: Bearer token required
+                            - body_data: Body data 
+                            """,
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'body_data': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'face_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Face level angle'),
+                    'shoulder_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                           description='Shoulder level angle'),
+                    'hip_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Hip level angle'),
+                    'leg_length_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Leg length ratio'),
+                    'left_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                               description='Left leg alignment angle'),
+                    'right_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                                description='Right leg alignment angle'),
+                    'left_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                           description='Left back knee angle'),
+                    'right_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                            description='Right back knee angle'),
+                    'forward_head_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Forward head angle'),
+                    'scoliosis_shoulder_ratio': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                               description='Scoliosis shoulder ratio'),
+                    'scoliosis_hip_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Scoliosis hip ratio'),
+                }),
+            'image_front': openapi.Schema(type=openapi.TYPE_STRING,
+                                          description='base64 encoded bytes of the front image'),
+            'image_side': openapi.Schema(type=openapi.TYPE_STRING,
+                                         description='base64 encoded bytes of the side image'),
+        },
+        required=['body_data'],  # Add any required fields here
+    ),
+    responses={
+        200: 'OK; created_body_result successfully',
+        400: 'Bad Request; token is not provided in the request body',
+        401: 'Unauthorized; incorrect user or password | user_not_found',
+        500: 'Internal Server Error'
+    },
+    tags=['mobile']
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])  # JWT 토큰 인증
+def create_body_result(request) -> Response:
+    user_id = request.user.id
+    if not user_id:
+        return Response({'data': {'message': 'token_required', 'status': 400}})
+
+    body_data = request.data.get('body_data')
+    if not body_data:
+        return Response({'data': {'message': 'body_data_required', 'status': 400}})
+
+    try:
+        user_info = UserInfo.objects.get(id=user_id)
+    except UserInfo.DoesNotExist:
+        return Response({'data': {'message': 'user_not_found', 'status': 401}})
+
+    # 사용자의 학교 정보가 없는 경우에 채울 Temp School 정보
+    null_school, created = SchoolInfo.objects.update_or_create(
+        id=-1,
+        defaults=dict(
+            school_name='N/A',
+            contact_number='N/A'
+        )
+    )
+
+    data = body_data.copy()
+    if user_info.school is None:  # 회원의 학교 정보가 없는 경우
+        data['school'] = null_school.id
+    else:  # 회원의 학교 정보가 있는 경우
+        # 학교 id, 학년, 반, 번호를 저장
+        data['school'] = user_info.school.id
+        data['student_grade'] = user_info.student_grade
+        data['student_class'] = user_info.student_class
+        data['student_number'] = user_info.student_number
+
+    data['user'] = user_info.id
+    serializer = BodyResultSerializer(data=data)
+
+    if serializer.is_valid():
+        serializer.save()
+        created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
+        image_front_bytes = request.data.get('image_front', None)
+        image_side_bytes = request.data.get('image_side', None)
+        try:
+            # S3에 이미지를 업로드
+            if image_front_bytes:
+                upload_image_to_s3(image_front_bytes, file_keys=['front', created_dt])
+            if image_side_bytes:
+                upload_image_to_s3(image_side_bytes, file_keys=['side', created_dt])
+        except Exception as e:
+            return Response({'data': {'message': str(e), 'status': 500}})
+        return Response({'data': {'message': 'created_body_result', 'status': 200}})
+    else:
+        return Response({'data': {'message': serializer.errors, 'status': 500}})
