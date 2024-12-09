@@ -10,7 +10,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from analysis.helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3
+from analysis.helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image
 from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo, SchoolInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
 
@@ -83,7 +83,7 @@ def login_mobile(request):
 
     if authorized_user_info.school is not None:
         authorized_user_info.user_type = 'S'
-    if authorized_user_info.organization is not None:
+    elif authorized_user_info.organization is not None:  # if -> elif로 수정
         authorized_user_info.user_type = 'O'
     else:
         authorized_user_info.user_type = 'G'
@@ -162,7 +162,7 @@ def login_mobile_uuid(request):
 
     if authorized_user_info.school is not None:
         authorized_user_info.user_type = 'S'
-    if authorized_user_info.organization is not None:
+    elif authorized_user_info.organization is not None:
         authorized_user_info.user_type = 'O'
     else:
         authorized_user_info.user_type = 'G'
@@ -640,10 +640,28 @@ def create_body_result(request) -> Response:
             image_side_bytes = request.data.get('image_side', None)
 
             # 이미지 업로드 시도
-            if image_front_bytes:
-                upload_image_to_s3(image_front_bytes, file_keys=['front', created_dt])
-            if image_side_bytes:
-                upload_image_to_s3(image_side_bytes, file_keys=['side', created_dt])
+            if image_front_bytes and image_side_bytes:  # 두 개 이미지 모두 존재하는 경우
+                try:
+                    # 두 이미지 모두 검증
+                    verified_front = verify_image(image_front_bytes)
+                    verified_side = verify_image(image_side_bytes)
+
+                    # 두 이미지 모두 검증이 성공한 경우에만 업로드
+                    upload_image_to_s3(verified_front, file_keys=['front', created_dt])
+                    upload_image_to_s3(verified_side, file_keys=['side', created_dt])
+                except ValueError as ve:
+                    # 이미지 검증 실패 시 트랜잭션 롤백
+                    raise ValueError("Invalid image format: " + str(ve))
+            else:
+                # 누락된 이미지에 따라 응답 메시지 출력
+                missing_images = []
+                if not image_front_bytes:
+                    missing_images.append("image_front")
+                if not image_side_bytes:
+                    missing_images.append("image_side")
+                # DB 저장 X -> 트랜잭션 롤백
+                raise ValueError("Missing images: " + ", ".join(missing_images))
+
     except ValueError as ve:
         return Response({'data': {'message': str(ve), 'status': 400}})  # 잘못된 요청 (이미지 처리 실패 - 이미지 base64 관련 문제)
     except Exception as e:

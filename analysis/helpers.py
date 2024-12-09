@@ -10,7 +10,7 @@ import re
 from PIL import Image
 import boto3
 from django.conf import settings
-import requests
+
 
 # 전역 변수 S3 클라이언트 생성
 s3_client = None
@@ -33,22 +33,27 @@ def generate_file_key(*args):  # ('front' + created_dt.png)
     return '-'.join(*args)
 
 
-def upload_image_to_s3(byte_string, file_keys):
+def verify_image(byte_string):
+    """이미지 검증 함수"""
+    try:
+        # byte string을 이미지로 변환
+        image_data = base64.b64decode(byte_string)
+        image = Image.open(BytesIO(image_data))
+        image.verify()  # 이미지 파일 검증
+        return image_data
+    except Exception as e:
+        raise ValueError("Image verification failed") from e
+
+
+def upload_image_to_s3(image_data, file_keys):
+    """검증된 이미지를 S3에 업로드하는 함수"""
     file_name = generate_file_key(file_keys) + '.png'
 
     # AWS S3 클라이언트 생성
     s3 = get_s3_client()
 
     try:
-        # byte string을 이미지로 변환
-        image_data = base64.b64decode(byte_string)
-        image = Image.open(BytesIO(image_data))
-
-        # 이미지가 정상적으로 열리지 않으면 예외 발생
-        image.verify()  # 이미지 파일 검증
-
-        image = Image.open(BytesIO(image_data))  # 다시 열기
-        # 이미지 파일 검증을 하면 이미지 객체가 닫힌 상태가 되어 다시 염
+        image = Image.open(BytesIO(image_data))  # 검증된 이미지 데이터로 이미지 객체 생성
 
         # 이미지를 BytesIO에 저장
         buffer = BytesIO()
@@ -68,7 +73,7 @@ def upload_image_to_s3(byte_string, file_keys):
             ContentType='image/png'
         )
     except Exception as e:  # AWS S3 이미지 업로드 실패
-        raise Exception("Failed to upload image to S3") from e
+        raise Exception("Failed to upload image") from e
 
 
 def generate_presigned_url(file_keys, expiration=settings.AWS_PRESIGNED_EXPIRATION):
