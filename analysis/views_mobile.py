@@ -19,6 +19,7 @@ from django.core.paginator import Paginator  # 페이지네이션
 from concurrent.futures import ThreadPoolExecutor  # 병렬 처리
 from django.db.models import Subquery
 from datetime import datetime as dt
+from django.db import transaction  # DB 트랜잭션
 
 kst = pytz.timezone('Asia/Seoul')
 
@@ -628,19 +629,24 @@ def create_body_result(request) -> Response:
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
 
-    if serializer.is_valid():
-        serializer.save()
-        created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
-        image_front_bytes = request.data.get('image_front', None)
-        image_side_bytes = request.data.get('image_side', None)
-        try:
-            # S3에 이미지를 업로드
+    if not serializer.is_valid():
+        return Response({'data': {'message': serializer.errors, 'status': 500}})  # 유효성 검사 실패
+
+    try:
+        with transaction.atomic():  # 트랜잭션 시작 (만약 중간에 예외 발생 시 rollback -> DB 반영 X)
+            serializer.save()
+            created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
+            image_front_bytes = request.data.get('image_front', None)
+            image_side_bytes = request.data.get('image_side', None)
+
+            # 이미지 업로드 시도
             if image_front_bytes:
                 upload_image_to_s3(image_front_bytes, file_keys=['front', created_dt])
             if image_side_bytes:
                 upload_image_to_s3(image_side_bytes, file_keys=['side', created_dt])
-        except Exception as e:
-            return Response({'data': {'message': str(e), 'status': 500}})
-        return Response({'data': {'message': 'created_body_result', 'status': 200}})
-    else:
-        return Response({'data': {'message': serializer.errors, 'status': 500}})
+    except ValueError as ve:
+        return Response({'data': {'message': str(ve), 'status': 400}})  # 잘못된 요청 (이미지 처리 실패 - 이미지 base64 관련 문제)
+    except Exception as e:
+        return Response({'data': {'message': str(e), 'status': 500}})  # 서버 에러 (AWS S3 에러)
+
+    return Response({'data': {'message': 'created_body_result', 'status': 200}})  # 성공 응답
