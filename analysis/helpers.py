@@ -10,9 +10,11 @@ import re
 from PIL import Image
 import boto3
 from django.conf import settings
+import requests
 
 # 전역 변수 S3 클라이언트 생성
 s3_client = None
+
 
 # boto3 반환 함수
 def get_s3_client():
@@ -26,38 +28,55 @@ def get_s3_client():
         )
     return s3_client
 
-def generate_file_key(*args):
+
+def generate_file_key(*args):  # ('front' + created_dt.png)
     return '-'.join(*args)
+
 
 def upload_image_to_s3(byte_string, file_keys):
     file_name = generate_file_key(file_keys) + '.png'
 
     # AWS S3 클라이언트 생성
     s3 = get_s3_client()
-    
-    # byte string을 이미지로 변환
-    image_data = base64.b64decode(byte_string)
-    image = Image.open(BytesIO(image_data))
-    
-    # 이미지를 BytesIO에 저장
-    buffer = BytesIO()
-    image.save(buffer, format='PNG')
-    buffer.seek(0)
-    
+
+    try:
+        # byte string을 이미지로 변환
+        image_data = base64.b64decode(byte_string)
+        image = Image.open(BytesIO(image_data))
+
+        # 이미지가 정상적으로 열리지 않으면 예외 발생
+        image.verify()  # 이미지 파일 검증
+
+        image = Image.open(BytesIO(image_data))  # 다시 열기
+        # 이미지 파일 검증을 하면 이미지 객체가 닫힌 상태가 되어 다시 염
+
+        # 이미지를 BytesIO에 저장
+        buffer = BytesIO()
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
+    except Exception as e:  # 이미지 처리 중 실패
+        raise ValueError("Image processing failed, please check the image file format.") from e
+
+    """시간이 많이 걸린다면, 비동기 처리를 고려해야 함"""
+
     # S3 버킷에 이미지 업로드
-    s3.put_object(
-        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-        Key=file_name,
-        Body=buffer,
-        ContentType='image/png'
-    )
+    try:
+        s3.put_object(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=file_name,
+            Body=buffer,
+            ContentType='image/png'
+        )
+    except Exception as e:  # AWS S3 이미지 업로드 실패
+        raise Exception("Failed to upload image to S3") from e
+
 
 def generate_presigned_url(file_keys, expiration=settings.AWS_PRESIGNED_EXPIRATION):
     file_name = generate_file_key(file_keys) + '.png'
 
     # AWS S3 클라이언트 생성
     s3 = get_s3_client()
-    
+
     # presigned URL 생성
     try:
         presigned_url = s3.generate_presigned_url(
@@ -72,7 +91,7 @@ def generate_presigned_url(file_keys, expiration=settings.AWS_PRESIGNED_EXPIRATI
     except Exception as e:
         print(f"Error generating presigned URL: {e}")
         return None
-    
+
 
 def parse_userinfo(userinfo_obj):
     return {
@@ -96,7 +115,8 @@ def parse_userinfo(userinfo_obj):
     }
 
 
-def fetch_recent_mails(email_host, email_user, email_password, minutes=1, allowed_domains=["vmms.nate.com", "ktfmms.magicn.com", "mmsmail.uplus.co.kr", "lguplus.com"]):
+def fetch_recent_mails(email_host, email_user, email_password, minutes=1,
+                       allowed_domains=["vmms.nate.com", "ktfmms.magicn.com", "mmsmail.uplus.co.kr", "lguplus.com"]):
     # Connect to the email server
     mail = imaplib.IMAP4_SSL(email_host)
     mail.login(email_user, email_password)
@@ -127,7 +147,7 @@ def fetch_recent_mails(email_host, email_user, email_password, minutes=1, allowe
                 email_date = email.utils.parsedate_to_datetime(msg['Date'])
                 if email_date is None:
                     continue
-                
+
                 # Ensure the email's date is within the last minute
                 if not (start_time <= email_date <= end_time):
                     continue
