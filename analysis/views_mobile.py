@@ -401,7 +401,33 @@ def get_gait_result(request):
                 properties={
                     "data": openapi.Schema(
                         type=openapi.TYPE_ARRAY,
-                        items=openapi.Schema(type=openapi.TYPE_OBJECT, description="Result object")
+                        items=openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "student_grade": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "student_class": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "student_number": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "face_level_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "shoulder_level_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "hip_level_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "leg_length_ratio": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "left_leg_alignment_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "right_leg_alignment_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "left_back_knee_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "right_back_knee_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "forward_head_angle": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "scoliosis_shoulder_ratio": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "scoliosis_hip_ratio": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "image_front_url": openapi.Schema(type=openapi.TYPE_STRING),
+                                "image_side_url": openapi.Schema(type=openapi.TYPE_STRING),
+                                "mobile_yn": openapi.Schema(type=openapi.TYPE_STRING,
+                                                            description="y: mobile, n: kiosk"),
+                                "created_dt": openapi.Schema(type=openapi.TYPE_STRING, format="date-time"),
+                                "user": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "school": openapi.Schema(type=openapi.TYPE_INTEGER),
+                            }
+                        )
                     ),
                     "total_pages": openapi.Schema(type=openapi.TYPE_INTEGER, description="Total number of pages."),
                     "current_page": openapi.Schema(type=openapi.TYPE_INTEGER, description="Current page number."),
@@ -626,10 +652,9 @@ def create_body_result(request) -> Response:
         data['student_class'] = user_info.student_class
         data['student_number'] = user_info.student_number
 
-    data['mobile_yn'] = 'y' # 모바일에서 생성했다는걸 나타내는 항목
+    data['mobile_yn'] = 'y'
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
-
     if not serializer.is_valid():
         return Response({'data': {'message': serializer.errors, 'status': 500}})  # 유효성 검사 실패
 

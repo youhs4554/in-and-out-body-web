@@ -15,7 +15,7 @@ from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
-from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
+from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo, UserHist
 from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
@@ -30,16 +30,19 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 
+
 def home(request):
     if request.user.is_authenticated:
         return redirect('register')
     else:
         return redirect('login')
 
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.urls import reverse_lazy
+
 
 def signup(request):
     if request.method == 'POST':
@@ -54,6 +57,7 @@ def signup(request):
         form = CustomUserCreationForm()
 
     return render(request, 'signup.html', {'form': form})
+
 
 def password_reset(request):
     if request.method == 'POST':
@@ -85,8 +89,10 @@ def password_reset(request):
     form = CustomPasswordResetForm()
     return render(request, 'password_reset.html', {'form': form})
 
+
 def password_reset_done(request):
     return render(request, 'password_reset_done.html')
+
 
 class CustomPasswordChangeView(PasswordChangeView):
     form_class = CustomPasswordChangeForm
@@ -214,7 +220,9 @@ def register(request):
         'total_users': len(users),
     })
 
+
 from django.http import JsonResponse
+
 
 def search_organization(request):
     query = request.GET.get('query', '')  # 사용자가 입력한 검색어를 가져옴
@@ -247,6 +255,7 @@ def search_organization(request):
         })
 
     return JsonResponse({'results': results})
+
 
 # @login_required
 def register_organization(request):
@@ -284,6 +293,7 @@ def register_organization(request):
 
     return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
 
+
 # @login_required
 def get_organization_info(request):
     user_id = request.user.id  # 관리자 계정의 고유 id
@@ -307,8 +317,10 @@ def get_organization_info(request):
 
     return JsonResponse(org_info)
 
+
 def no_result(request):
     return render(request, 'no_result.html')
+
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -532,10 +544,12 @@ import pytz
 
 kst = pytz.timezone('Asia/Seoul')
 
+
 @login_required
 def report_detail(request, id):
     user_id = id
     return generate_report(request, user_id)
+
 
 @login_required
 def report_detail_protected(request):
@@ -817,8 +831,11 @@ def generate_report(request, id, report_id=None):
     context['report_date'] = select_report_date
 
     return render(request, 'report_detail.html', context)
+
+
 def policy(request):
     return render(request, 'policy.html')
+
 
 @swagger_auto_schema(
     method='post',
@@ -904,7 +921,7 @@ def create_gait_result(request):
         serializer.save()
         return Response({'data': {'message': 'created_gait_result', 'status': 200}})
     else:
-        return Response({'data': {'message' : serializer.errors, 'status': 500}})
+        return Response({'data': {'message': serializer.errors, 'status': 500}})
 
 
 @swagger_auto_schema(
@@ -1031,6 +1048,7 @@ def get_info(requests):
 
     return Response({'data': info, 'message': 'OK', 'status': 200})
 
+
 @swagger_auto_schema(
     method='post',
     operation_description="Create a new body result record",
@@ -1080,14 +1098,14 @@ def create_body_result(request):
     try:
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response({'data' : {'message': 'session_key_not_found', 'status': 404}})
+        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
         return Response({'data': {'message': 'user_not_found', 'status': 401}})
 
-    # Retrieve or create a fixed "null school" instance
+    # 사용자의 학교 정보가 없는 경우에 채울 Temp School 정보
     null_school, created = SchoolInfo.objects.update_or_create(
         id=-1,
         defaults=dict(
@@ -1097,10 +1115,15 @@ def create_body_result(request):
     )
 
     data = body_data.copy()
-    if user_info.school is None:
+    if user_info.school is None:  # 회원의 학교 정보가 없는 경우
         data['school'] = null_school.id
-    else:
+    else:  # 회원의 학교 정보가 있는 경우
+        # 학교 id, 학년, 반, 번호를 저장
         data['school'] = user_info.school.id
+        data['student_grade'] = user_info.student_grade
+        data['student_class'] = user_info.student_class
+        data['student_number'] = user_info.student_number
+
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
 
@@ -1109,17 +1132,34 @@ def create_body_result(request):
         created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
         image_front_bytes = request.data.get('image_front', None)
         image_side_bytes = request.data.get('image_side', None)
+
         try:
-            # S3에 이미지를 업로드
-            if image_front_bytes:
-                upload_image_to_s3(image_front_bytes, file_keys=['front', created_dt])
-            if image_side_bytes:
-                upload_image_to_s3(image_side_bytes, file_keys=['side', created_dt])
+            # 이미지 검증
+            if image_front_bytes and image_side_bytes:
+                try:
+                    verified_front = verify_image(image_front_bytes)
+                    verified_side = verify_image(image_side_bytes)
+
+                    # 검증된 이미지만 업로드
+                    upload_image_to_s3(verified_front, file_keys=['front', created_dt])
+                    upload_image_to_s3(verified_side, file_keys=['side', created_dt])
+                except ValueError as ve:
+                    return Response({'data': {'message': f"Invalid image format: {str(ve)}", 'status': 400}})
+            else:
+                missing_images = []
+                if not image_front_bytes:
+                    missing_images.append("image_front")
+                if not image_side_bytes:
+                    missing_images.append("image_side")
+                return Response({'data': {'message': f"Missing images: {', '.join(missing_images)}", 'status': 400}})
+
         except Exception as e:
             return Response({'data': {'message': str(e), 'status': 500}})
+
         return Response({'data': {'message': 'created_body_result', 'status': 200}})
     else:
-        return Response({'data': {'message' : serializer.errors, 'status': 500}})
+        return Response({'data': {'message': serializer.errors, 'status': 500}})
+
 
 @swagger_auto_schema(
     method='get',
@@ -1244,7 +1284,7 @@ def login_kiosk(request):
         kiosk_id=kiosk_id,
     )
 
-    return Response({'data' : {'session_key': session_key, 'message': 'success', 'status': 200}})
+    return Response({'data': {'session_key': session_key, 'message': 'success', 'status': 200}})
 
 
 @swagger_auto_schema(
@@ -1335,6 +1375,7 @@ def get_userinfo_session(request):
         return Response({"data": {"message": "user_not_found", "status": 401}})
 
     return Response({'data' : parse_userinfo(user_info), 'message': 'OK', 'status': 200})
+
 
 @swagger_auto_schema(
     method='post',
