@@ -113,8 +113,9 @@
 
     <!-- Table Container: Initially Hidden -->
     <div id="tableContainer" class="table-container" style="display: {% if users %}block{% else %}none{% endif %};">
-        <h4>업로드된 데이터를 확인해주세요</h4>
+        <h4>업로드된 데이터를 확인해주세요 (총 {{ total_users }}명)</h4>
         <table id="dataTable">
+            <caption>사용자 정보</caption>
             <thead>
                 <tr>
                     {% for column in columns %}
@@ -185,6 +186,14 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.org_name) {
+                        if (data.address == null) {
+                            data.address = '정보 없음';
+                        }
+
+                        if (data.contact == null) {
+                            data.contact = '정보 없음';
+                        }
+
                         // Display the registered organization info
                         selectedOrgName.textContent = `기관명: ${data.org_name}`;
                         selectedOrgAddress.textContent = `주소: ${data.address}`;
@@ -420,6 +429,10 @@
                     th.textContent = column;
                     tableHeader.appendChild(th);
                 });
+
+                const totalCount = jsonData.length;
+                const tableTitle = document.querySelector('#tableContainer h4');
+                tableTitle.textContent = `업로드된 데이터를 확인해주세요 (총 ${totalCount}명)`;
     
                 // Populate the table rows
                 for (let i = startIndex; i < endIndex; i++) {

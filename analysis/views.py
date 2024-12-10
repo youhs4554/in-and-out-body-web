@@ -16,16 +16,19 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
 from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3
-from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo
+from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo, UserHist
 from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
+from django.db.models import Min, Max, Exists, OuterRef
+from django.db.models.functions import ExtractYear
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from datetime import datetime as dt
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
+from collections import defaultdict
 
 def home(request):
     if request.user.is_authenticated:
@@ -90,6 +93,7 @@ class CustomPasswordChangeView(PasswordChangeView):
     template_name = 'password_change.html'
     success_url = '/password-change-done/'
 
+
 @login_required
 def register(request):
     users = []  # Initialize an empty list to hold user data
@@ -107,7 +111,7 @@ def register(request):
 
                 # Define columns based on user type
                 if user_type == 'S':
-                    columns = [ '학년', '반', '번호', '이름', '전화번호' ]
+                    columns = ['학년', '반', '번호', '이름', '전화번호']
                     if not (df.columns.values.tolist() == columns):
                         user_type_str = '교직원용' if user_type == 'S' else '일반 기관용'
                         raise ValueError(f"올바른 템플릿이 아닙니다. {user_type_str} 템플릿을 다운로드 받아서 다시 시도해주세요.")
@@ -121,7 +125,24 @@ def register(request):
                         )
                         phone_number = extract_digits(str(row['전화번호']).strip().replace('-', ''))
                         if phone_number.startswith('10'):
-                            phone_number = '0'+ phone_number
+                            phone_number = '0' + phone_number
+
+                        # 회원가입이 되어 있는지 확인
+                        user_info = UserInfo.objects.filter(phone_number=phone_number).first()
+
+                        if user_info:
+                            # 기존의 반 정보를 UserHist로 저장
+                            UserHist.objects.create(
+                                phone_number=user_info.phone_number,
+                                user=user_info.id,
+                                school=user_info.school,
+                                student_grade=user_info.student_grade,
+                                student_class=user_info.student_class,
+                                student_number=user_info.student_number,
+                                student_name=user_info.student_name,
+                                year=user_info.year,
+                            )
+
                         user_info, created = UserInfo.objects.update_or_create(
                             phone_number=phone_number,
                             defaults=dict(
@@ -136,6 +157,7 @@ def register(request):
                                 user_display_name=f"{school_info.school_name} {row['학년']}학년 {row['반']}반 {row['번호']}번 {row['이름']}",
                                 organization=None,
                                 department=None,
+                                year=dt.now().year  # 현재 년도 int 값으로 저장
                             ),
                         )
                         users.append({
@@ -146,7 +168,7 @@ def register(request):
                             '전화번호': row['전화번호'],
                         })
                 else:
-                    columns = [ '부서명', '이름', '전화번호' ]
+                    columns = ['부서명', '이름', '전화번호']
                     if not (df.columns.values.tolist() == columns):
                         user_type_str = '교직원용' if user_type == 'S' else '일반 기관용'
                         raise ValueError(f"올바른 템플릿이 아닙니다. {user_type_str} 템플릿을 다운로드 받아서 다시 시도해주세요.")
@@ -160,7 +182,7 @@ def register(request):
                         )
                         phone_number = extract_digits(str(row['전화번호']).strip().replace('-', ''))
                         if phone_number.startswith('10'):
-                            phone_number = '0'+ phone_number
+                            phone_number = '0' + phone_number
                         user_info, created = UserInfo.objects.update_or_create(
                             phone_number=phone_number,
                             defaults=dict(
@@ -172,6 +194,7 @@ def register(request):
                                 user_type=user_type,
                                 user_display_name=f"{organization_info.organization_name} {row['이름']}",
                                 school=None,
+                                year=dt.now().year  # 현재 년도 int 값으로 저장
                             ),
                         )
                         users.append({
@@ -183,11 +206,12 @@ def register(request):
                 return JsonResponse({'error': str(e)}, status=400)
     else:
         form = UploadFileForm()
-    
+
     return render(request, 'register.html', {
         'form': form,
         'users': users,
-        'columns': columns  # Pass dynamic columns
+        'columns': columns,  # Pass dynamic columns
+        'total_users': len(users),
     })
 
 from django.http import JsonResponse
@@ -264,7 +288,7 @@ def register_organization(request):
 def get_organization_info(request):
     user_id = request.user.id  # 관리자 계정의 고유 id
     user = UserInfo.objects.get(id=user_id)
-    
+
     org_info = {}
     if user.school is not None:
         org_info = {
@@ -280,7 +304,7 @@ def get_organization_info(request):
             'contact': user.organization.contact_number,
             'type': 'organization'
         }
-    
+
     return JsonResponse(org_info)
 
 def no_result(request):
@@ -290,41 +314,122 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 import re
 
+
 @login_required
 def report(request):
     user = request.user  # 현재 유저
     error_message = None
     selected_group = request.session.get('selected_group', None)  # 세션에서 그룹 정보 가져오기
+    selected_year = request.session.get('selected_year', None)  # 세션에서 년도 정보 가져오기
     user_results = []
-    groups = []
+    groups = []  # 해당 School의 현재 연도 그룹 정보 저장
+    years = []  # 해당 School의 BodyResult에 있는 최소 연도, 최대 연도 저장
+    year_group_map = defaultdict(list)  # 연도별 그룹 정보 저장 ('연도': ['그룹1', '그룹2', ...])
 
     if request.method == 'POST':
         selected_group = request.POST.get('group')
+        selected_year = request.POST.get('year')
 
         if not selected_group:
             return redirect('report')  # PRG 패턴을 위해 POST 처리 후 리다이렉트
         else:
             # 선택된 그룹을 세션에 저장하여 리다이렉트 후에도 유지
             request.session['selected_group'] = selected_group
+            request.session['selected_year'] = selected_year
             return redirect('report')  # 리다이렉트 후 GET 요청으로 변환
 
     # GET 요청 처리 (리다이렉트 후 처리)
     if user.user_type == 'S':
-        groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade', 'student_class', named=True).distinct().order_by('student_grade', 'student_class')
-        groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if ((g.student_grade is not None) & (g.student_class is not None))]
+        # 학교별 학년/반 정보 가져오기 -> select 태그에 들어가는 값
+        groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade',
+                                                                                                  'student_class',
+                                                                                                  named=True).distinct().order_by(
+            'student_grade', 'student_class')
+        groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if
+                  ((g.student_grade is not None) & (g.student_class is not None))]
 
-        if selected_group:
+        # 연도별 그룹 정보 생성
+        user_hists = UserHist.objects.filter(school__id=user.school.id)
+        for hist in user_hists:
+            year = str(hist.year)  # 객체 속성으로 접근
+            year_group = f"{hist.student_grade}학년 {hist.student_class}반"
+
+            # 해당 연도가 year_group_map에 없으면 초기화
+            if year not in year_group_map:
+                year_group_map[year] = []
+
+            # 중복되지 않게 추가
+            if year_group not in year_group_map[year]:
+                year_group_map[year].append(year_group)
+
+        # 현재 연도의 그룹 정보 추가 (중복 방지)
+        current_year = str(dt.now().year)
+        if current_year not in year_group_map:
+            year_group_map[current_year] = []
+
+        for group in groups:
+            if group not in year_group_map[current_year]:
+                year_group_map[current_year].append(group)
+
+        # 학교별 년도 정보 가져오기 -> select 태그에 들어가는 값
+        # school_id에 해당하는 BodyResult 데이터에서 created_dt의 최소/최대 연도를 가져오기
+        result = BodyResult.objects.filter(school__id=user.school.id).annotate(
+            year=ExtractYear('created_dt')
+        ).aggregate(
+            min_year=Min('year'),
+            max_year=Max('year'),
+        )
+
+        min_year = result['min_year']
+        max_year = result['max_year']
+
+        # min_year와 max_year 사이의 연도를 리스트로 만들어서 years에 저장
+        if min_year is not None and max_year is not None:
+            years = [str(year) for year in range(max_year, min_year - 1, -1)]
+        else:
+            years = [dt.now().year]
+
+        if selected_year and selected_group:
+            if selected_year != str(dt.now().year) and selected_year not in year_group_map:
+                error_message = '해당 연도에는 검사 결과가 없습니다.'
+
             # 정규 표현식으로 학년과 반 추출
             match = re.search(r"(\d+)학년 (\d+)반", selected_group)
-            if match:
-                users = UserInfo.objects.filter(school__school_name=user.school.school_name, 
-                                                student_grade=match.group(1), student_class=match.group(2)).order_by('student_number')
+            if selected_year == str(dt.now().year) and match:
+                user_results.clear()  # 기존 결과 초기화
 
-                # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
-                for user in users:
+                body_result_subquery = BodyResult.objects.filter(
+                    user_id=OuterRef('id'),
+                    image_front_url__isnull=False,
+                    image_side_url__isnull=False
+                )
+
+                users = UserInfo.objects.filter(
+                    school__school_name=user.school.school_name,
+                    student_grade=match.group(1),
+                    student_class=match.group(2)
+                ).annotate(
+                    analysis_valid=Exists(body_result_subquery)
+                ).order_by('student_number')
+
+                user_results = [{
+                    'user': user,
+                    'analysis_valid': user.analysis_valid
+                } for user in users]
+
+                """ 만약 다른 연도의 데이터 조회를 할 때 """
+            elif selected_year != str(dt.now().year) and match:
+                user_results.clear()  # 기존 결과 초기화
+
+                user_hists = UserHist.objects.filter(school__id=user.school.id,
+                                                     student_grade=match.group(1),
+                                                     student_class=match.group(2),
+                                                     year=selected_year).order_by('student_number')
+                for user_hist in user_hists:
                     body_result_queryset = BodyResult.objects.filter(
-                        user_id=user.id,
-                        image_front_url__isnull=False,
+                        user_id=user_hist.user.id,
+                        created_dt__year=selected_year,  # 선택된 연도에 해당하는 데이터만 가져옴
+                        image_front_url__isnull=False,  # 만약 전면, 사이드 이미지가 없는 경우는 쿼리 결과에서 제외됨
                         image_side_url__isnull=False,
                     )
 
@@ -332,15 +437,27 @@ def report(request):
 
                     # user와 검사 결과 여부를 딕셔너리 형태로 추가
                     user_results.append({
-                        'user': user,
-                        'analysis_valid': analysis_valid
+                        'user': {  # 이전의 연도 데이터를 사용
+                            'id': user_hist.user.id,
+                            'student_grade': user_hist.student_grade,
+                            'student_class': user_hist.student_class,
+                            'student_number': user_hist.student_number,
+                            'student_name': user_hist.user.student_name
+                        },
+                        'analysis_valid': analysis_valid,
+                        'created_dt': body_result_queryset[0].created_dt.strftime(
+                            '%Y-%m-%d %H:%M:%S') if analysis_valid else None
                     })
+
     elif user.user_type == 'O':
-        groups = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name).values_list('department', named=True).distinct().order_by('department')
+        groups = UserInfo.objects.filter(
+            organization__organization_name=user.organization.organization_name).values_list('department',
+                                                                                             named=True).distinct().order_by(
+            'department')
         groups = [g.department for g in groups if ((g.department is not None))]
 
         if selected_group:
-            users = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name, 
+            users = UserInfo.objects.filter(organization__organization_name=user.organization.organization_name,
                                             department=selected_group).order_by('student_name')
 
             # 각 user에 대한 검사 결과 여부를 확인하여 user_results에 추가
@@ -358,10 +475,13 @@ def report(request):
                     'analysis_valid': analysis_valid
                 })
 
-    if user.user_type == '' or len(user_results) == 0:
+    if user.user_type == '' or len(user_results) == 0:  # 초기 렌더링
         return render(request, 'report.html', {
             'groups': groups,  # 그룹을 초기화
+            'years': years,
+            'year_group_map': json.dumps(dict(year_group_map), ensure_ascii=False),
             'user_results': [],  # 테이블 초기화
+            'selected_year': str(dt.now().year),
             'selected_group': None,
             'error_message': error_message,
             'valid_count': 0,
@@ -369,7 +489,6 @@ def report(request):
             'progress_percentage': 0,
             'is_registered': len(groups) > 0,
         })
-    
 
     # 분석 진행률 계산
     total_users = len(user_results)
@@ -382,7 +501,7 @@ def report(request):
 
     if len(groups) == 0 or total_users == 0:
         selected_group = None
-        user_results = [] # 테이블 초기화
+        user_results = []  # 테이블 초기화
         selected_group = None
         valid_count = 0
         total_users = 0
@@ -391,7 +510,10 @@ def report(request):
 
     return render(request, 'report.html', {
         'groups': groups,
+        'years': years,
+        'year_group_map': json.dumps(dict(year_group_map), ensure_ascii=False),
         'user_results': user_results,
+        'selected_year': selected_year,
         'selected_group': selected_group,
         'error_message': error_message,
         'valid_count': valid_count,
@@ -399,6 +521,7 @@ def report(request):
         'progress_percentage': progress_percentage,
         'is_registered': True,
     })
+
 
 # Example report items
 # TODO: get from actual DB
@@ -907,7 +1030,7 @@ def get_info(requests):
             })
 
     return Response({'data': info, 'message': 'OK', 'status': 200})
-    
+
 @swagger_auto_schema(
     method='post',
     operation_description="Create a new body result record",
@@ -949,7 +1072,7 @@ def create_body_result(request):
     session_key = request.data.get('session_key')
     if not session_key:
         return Response({'data': {'message': 'session_key_required', 'status': 400}})
-    
+
     body_data = request.data.get('body_data')
     if not body_data:
         return Response({'data': {'message': 'body_data_required', 'status': 400}})
@@ -1097,7 +1220,7 @@ def get_body_result(request):
     responses={
         200: openapi.Response('Success', openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            properties={'data': 
+            properties={'data':
                         openapi.Schema(
                             type=openapi.TYPE_OBJECT,
                             properties={
@@ -1113,7 +1236,7 @@ def login_kiosk(request):
     kiosk_id = request.data.get('kiosk_id')
     if not kiosk_id:
         return Response({'data': {'message': 'kiosk_id_required', 'status': 400}})
-    
+
     # POST 메소드를 사용하여 키오스크 로그인 요청 처리
     session_key = uuid.uuid4().hex
     SessionInfo.objects.update_or_create(
@@ -1149,10 +1272,10 @@ def login_kiosk_id(request):
     session_key = request.data.get('session_key')
     if not session_key:
         return Response({'data': {'message': 'session_key_required', 'status': 400}})
-    
+
     phone_number = request.data.get('phone_number')
     password = request.data.get('password')
-    
+
     if not phone_number or not password:
         return Response({'data': {'message': 'phone_number_and_password_required', 'status': 400}})
 
@@ -1165,7 +1288,7 @@ def login_kiosk_id(request):
         user_info = UserInfo.objects.get(phone_number=phone_number)
     except UserInfo.DoesNotExist:
         return Response({'data': {"message": "user_not_found", 'status': 401}})
-    
+
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
         return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
     else:
@@ -1205,12 +1328,12 @@ def get_userinfo_session(request):
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
         return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
-    
+
     try:
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
         return Response({"data": {"message": "user_not_found", "status": 401}})
-    
+
     return Response({'data' : parse_userinfo(user_info), 'message': 'OK', 'status': 200})
 
 @swagger_auto_schema(
@@ -1239,6 +1362,6 @@ def end_session(request):
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
         return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
-    
+
     session_info.delete()
     return Response({'data' : {'message': 'session_closed', 'status': 200}, 'message': 'session_closed', 'status': 200})

@@ -14,6 +14,8 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+from .custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
+
 schema_view = get_schema_view( 
     openapi.Info( 
         title="Swagger API Document of In-and-Out-Body", 
@@ -45,8 +47,8 @@ urlpatterns = [
     path('password-reset-done/', views.password_reset_done, name='password_reset_done'),
 
     # for JWT token
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
 
     # for custom authentication process
     path('api/login-kiosk/', views.login_kiosk, name='login_kiosk'),

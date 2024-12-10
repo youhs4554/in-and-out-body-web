@@ -4,17 +4,33 @@
 
 {% block content %}
 <h2>검사결과를 확인해주세요</h2>
-<form id="dataForm" method="post">
-    {% csrf_token %}
-    <label for="group">그룹 선택</label>
-    <select name="group" id="group">
-        <option value="">-- 그룹 선택 --</option>
-        {% for group in groups %}
-            <option value="{{ group }}" {% if group == selected_group %}selected{% endif %}>{{ group }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" class="button">조회</button>
-</form>
+<div class="form-div">
+    <form id="dataForm" method="post">
+        {% csrf_token %}
+        {% if request.user.user_type == 'S' %}
+        <div style="display: inline-block">       
+                <label for="year">연도 선택</label>
+                <select name="year" id="year">
+                    <option value="">-- 연도 선택 --</option>
+                    {% for year in years %}
+                        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+            <div style="display: inline-block;">
+                <label for="group">그룹 선택</label>
+                <select name="group" id="group">
+                    <option value="">-- 그룹 선택 --</option>
+                    {% for group in groups %}
+                        <option value="{{ group }}" {% if group == selected_group %}selected{% endif %}>{{ group }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="button">조회</button>
+        </form>
+</div>
 
 <!-- Spinner Container: Initially Hidden -->
 <div id="spinnerContainer" class="spinner-container" style="display: none;">
@@ -32,18 +48,58 @@
 {% endif %}
 
 {% if user_results %}
-    <h3>{{ selected_group }}의 분석 현황</h3>
+    <h3 class="group_title">
+        {% if request.user.user_type == 'S' %}
+            {{selected_year}}년
+        {% endif %} 
+        {{ selected_group }}의 분석 현황</h3>
     <div class="table-container">
-        <p>데이터를 확인해주세요</p>
-    
-        <!-- Display progress -->
-        <div class="progress-container">
-            <p>진행률: {{ progress_percentage|floatformat:1 }}%</p>
-            <div class="progress-bar">
-                <div class="progress" style="width: {{ progress_percentage|floatformat:1 }}%;"></div>
+        <!-- 분석 현황 카드 추가 -->
+        <div class="analysis-status-cards">
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="card-content">
+                    <h4>전체 인원</h4>
+                    <p class="card-value">{{ total_users }}명</p>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <div class="card-content">
+                    <h4>검사 완료</h4>
+                    <p class="card-value">{{ valid_count }}명</p>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="card-content">
+                    <h4>검사율</h4>
+                    <p class="card-value">{{ progress_percentage|floatformat:1 }}%</p>
+                </div>
             </div>
         </div>
     
+        <!-- Display progress -->
+         <div class="progress-container">
+            <div class="progress-info">
+                <p class="progress_percentage" style="font-weight: 700;">검사율: {{ progress_percentage|floatformat:1 }}%</p>
+                {% comment %} <span class="progress-count">{{ valid_count }}명 / {{ total_users }}명</span> {% endcomment %}
+            </div>
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ progress_percentage|floatformat:1 }}%;">
+                    <div class="progress-glow"></div>
+                </div>
+            </div>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -71,11 +127,17 @@
                     <td>{{ result.user.student_name }}</td>
                     <td>
                         {% if result.analysis_valid %}
-                            <a href="{% url 'report_detail' result.user.id %}" class="icon-button success" aria-label="View Report">
-                                <i class="fa-solid fa-check"></i>
-                            </a>
+                            {% if result.created_dt %}
+                            <a href="/report/{{ result.user.id }}/?selected_date={{ result.created_dt }}" class="icon-button success" aria-label="View Report">
+                                    <i class="fa-solid fa-check"></i>
+                                </a> 
+                            {% else %}
+                                <a href="{% url 'report_detail' result.user.id %}" class="icon-button success" aria-label="View Report">
+                                    <i class="fa-solid fa-check"></i>
+                                </a>
+                            {% endif %}
                         {% else %}
-                            <a href="{% url 'no_result' %}" class="icon-button error" aria-label="No Result">
+                            <a href="#" class="icon-button error" aria-label="No Result">
                                 <i class="fa-solid fa-times"></i>
                             </a>
                         {% endif %}
@@ -91,164 +153,210 @@
     </div>
 {% endif %}
 
+
+
 <!-- Include JavaScript for Pagination and Fetch -->
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const rowsPerPage = 10;
-    let currentPage = 1;
-    const userResultsTableBody = document.getElementById('userResultsTableBody');
-    let rows = [];
+    document.addEventListener("DOMContentLoaded", function() {
+        const groupSelect = document.getElementById("group");
+        const form = document.getElementById("dataForm");
+        const spinnerContainer = document.getElementById("spinnerContainer");
+        const userResultsTableBody = document.getElementById('userResultsTableBody');
+        const yearGroupMap = JSON.parse('{{ year_group_map|escapejs|safe }}'); 
+        const userType = '{{ request.user.user_type }}';   
+        let yearSelect; 
 
-    if (userResultsTableBody) {
-        rows = Array.from(userResultsTableBody.querySelectorAll('tr'));
-    }
-
-    let totalPages = Math.ceil(rows.length / rowsPerPage);
-
-    const prevButton = document.getElementById("prevPage");
-    const nextButton = document.getElementById("nextPage");
-
-    function updatePaginationButtons() {
-        prevButton.style.display = currentPage > 1 ? '' : 'none';
-        nextButton.style.display = currentPage < totalPages ? '' : 'none';
-    }
-
-    function displayTable(page) {
-        const startIndex = (page - 1) * rowsPerPage;
-        const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
+        if (userType == 'S') {
+            yearSelect = document.getElementById("year");
+        }
         
-        rows.forEach((row, index) => {
-            row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+        let rows = [];
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let totalPages = 0;
+
+        // 연도 선택에 따라 그룹 옵션 업데이트
+        function updateGroupOptions() {
+            let groups;
+            if (userType == 'S') {
+                const selectedYear = yearSelect.value;
+                groups = yearGroupMap[selectedYear] || [];
+
+                groupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+            
+                groups.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group;
+                    option.textContent = group;
+                    groupSelect.appendChild(option);
+            });
+            } else {
+                return;
+            }
+            
+        }
+    
+        /** 테이블과 페이지네이션 초기화 함수 */
+        function initializeTableAndPagination() {
+            if (userResultsTableBody) {
+                allRows = Array.from(userResultsTableBody.querySelectorAll('tr')); // 전체 행 저장
+                rows = [...allRows]; // 현재 표시할 행
+                totalPages = Math.ceil(rows.length / rowsPerPage);
+                currentPage = 1;
+                displayTable(currentPage);
+            }
+        }
+    
+
+        /** 진행률 및 HTML 변수 업데이트 함수 */
+        function updateProgress(doc) {
+            // 상단 선택된 그룹명 변경
+            const groupTitle = document.querySelector('.group_title');
+            const newGroupTitle = doc.querySelector('.group_title');
+            if (groupTitle && newGroupTitle) {
+                groupTitle.textContent = newGroupTitle.textContent;
+            }
+        
+            // 분석 현황 카드 값 업데이트
+            const statusCards = document.querySelectorAll('.card-value');
+            const newStatusCards = doc.querySelectorAll('.card-value');
+            if (statusCards && newStatusCards) {
+                statusCards.forEach((card, index) => {
+                    if (newStatusCards[index]) {
+                        card.textContent = newStatusCards[index].textContent;
+                    }
+                });
+            }
+        
+            // 진행률 텍스트 업데이트
+            const progressText = document.querySelector('.progress_percentage');
+            const newProgressText = doc.querySelector('.progress_percentage');
+            if (progressText && newProgressText) {
+                progressText.textContent = newProgressText.textContent;
+            }
+        
+            // 진행률 카운트 업데이트
+            const progressCount = document.querySelector('.progress-count');
+            const newProgressCount = doc.querySelector('.progress-count');
+            if (progressCount && newProgressCount) {
+                progressCount.textContent = newProgressCount.textContent;
+            }
+        
+            // 프로그레스 바 업데이트
+            const progressBar = document.querySelector('.progress-bar .progress');
+            const newProgressBar = doc.querySelector('.progress-bar .progress');
+            if (progressBar && newProgressBar) {
+                progressBar.style.width = newProgressBar.style.width;
+            }
+        }
+    
+        function updatePaginationButtons() {
+            const prevButton = document.getElementById("prevPage");
+            const nextButton = document.getElementById("nextPage");
+            prevButton.style.display = currentPage > 1 ? '' : 'none';
+            nextButton.style.display = currentPage < totalPages ? '' : 'none';
+        }
+    
+        function displayTable(page) {
+            const startIndex = (page - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
+            
+            rows.forEach((row, index) => {
+                row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+            });
+    
+            updatePaginationButtons();
+        }
+        
+        // 페이지네이션 버튼 이벤트 리스너
+        document.getElementById("prevPage").addEventListener("click", function() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayTable(currentPage);
+            }
         });
-
-        updatePaginationButtons();
-    }
-
-    prevButton.addEventListener("click", function() {
-        if (currentPage > 1) {
-            currentPage--;
-            displayTable(currentPage);
+    
+        document.getElementById("nextPage").addEventListener("click", function() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayTable(currentPage);
+            }
+        });
+    
+        // 현재 연도 선택
+        const currentYear = new Date().getFullYear().toString();
+        if (userType == 'S' && !yearSelect.value) {
+            yearSelect.value = currentYear;
         }
-    });
-
-    nextButton.addEventListener("click", function() {
-        if (currentPage < totalPages) {
-            currentPage++;
-            displayTable(currentPage);
-        }
-    });
-
-    // 큐로 세션 스토리지 관리
-    function loadQueue(key) {
-        const storedQueue = sessionStorage.getItem(key);
-        return storedQueue ? JSON.parse(storedQueue) : [];
-    }
-
-    function saveQueue(key, queue) {
-        sessionStorage.setItem(key, JSON.stringify(queue));
-    }
-
-    function enqueue(key, data, maxSize) {
-        let queue = loadQueue(key);
-        queue.push(data);
-        if (queue.length > maxSize) {
-            queue.shift();
-        }
-        saveQueue(key, queue);
-    }
-
-    function dequeue(key) {
-        let queue = loadQueue(key);
-        const data = queue.shift();
-        saveQueue(key, queue);
-        return data;
-    }
-
-    function peekQueue(key) {
-        const queue = loadQueue(key);
-        return queue.length > 0 ? queue[0] : null;
-    }
-
-    function clearQueue(key) {
-        sessionStorage.removeItem(key);
-    }
-
-    // 상태 저장
-    window.addEventListener("beforeunload", () => {
-        const selectedGroup = document.querySelector("#group").value;
-        const tableData = rows.map(row => row.outerHTML);
         
-        enqueue("selectedGroupQueue", selectedGroup, 5);
-        enqueue("tableDataQueue", JSON.stringify(tableData), 5);
-        sessionStorage.setItem("currentPage", currentPage);
-    });
-
-    const savedGroup = dequeue("selectedGroupQueue");
-    const savedTableData = dequeue("tableDataQueue");
-    const savedPage = sessionStorage.getItem("currentPage");
-
-    if (savedGroup) {
-        document.querySelector("#group").value = savedGroup;
-    }
-
-    if (savedTableData) {
-        userResultsTableBody.innerHTML = JSON.parse(savedTableData).join('');
-    }
-
-    rows.length = 0;
-    Array.from(userResultsTableBody.querySelectorAll('tr')).forEach(row => rows.push(row));
-
-    totalPages = Math.ceil(rows.length / rowsPerPage);
-
-    if (savedPage) {
-        currentPage = parseInt(savedPage);
-        displayTable(currentPage);
-    } else {
-        displayTable(currentPage);
-    }
-
-    window.addEventListener("beforeunload", () => {
-        clearQueue('selectedGroupQueue');
-        clearQueue('tableDataQueue');
-    });
-
-    const form = document.getElementById("dataForm");
-    const spinnerContainer = document.getElementById('spinnerContainer');
-
-    form.addEventListener('submit', function(event) {
-        event.preventDefault();  // 기본 제출 동작 방지
-        spinnerContainer.style.display = 'flex';  // 스피너 표시
-        const formData = new FormData(form);
+        // 초기 그룹 옵션 설정
+        updateGroupOptions();
         
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-        })
-        .then(response => response.text())
-        .then(html => {
+        // 이전에 선택된 그룹이 있다면 설정
+        const initialSavedGroup = "{{ selected_group|default_if_none:'' }}";
+        if (initialSavedGroup && groupSelect.querySelector(`option[value="${initialSavedGroup}"]`)) {
+            groupSelect.value = initialSavedGroup;
+        }
+    
+        // 연도 선택 변경 이벤트 리스너
+        if (userType == 'S') {
+            yearSelect.addEventListener('change', function() {
+                updateGroupOptions();
+                groupSelect.value = '';
+            });
+        }
+        
+        // 폼 제출 이벤트 리스너
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (userType == 'S') {
+                if (!yearSelect.value || !groupSelect.value) {
+                    alert('연도와 그룹을 선택해주세요.');
+                    return;
+                }
+            } else {
+                if (!groupSelect.value) {
+                    alert('그룹을 선택해주세요.');
+                    return;
+                }
+            }
+            
+            spinnerContainer.style.display = 'flex';
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.text())
+            .then(html => {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                // 테이블 업데이트
-                document.getElementById('userResultsTableBody').innerHTML = doc.getElementById('userResultsTableBody').innerHTML;
 
-                // 새로운 rows 배열을 업데이트
-                rows = Array.from(document.getElementById('userResultsTableBody').querySelectorAll('tr'));
-                currentPage = 1;  // 페이지 초기화
-                displayTable(currentPage);  // 테이블 재표시
-                spinnerContainer.style.display = 'none';  // 스피너 숨김
+                // 테이블 데이터 업데이트
+                userResultsTableBody.innerHTML = doc.getElementById('userResultsTableBody').innerHTML;
+                
+                // 세션 스토리지 초기화
+                sessionStorage.clear();
+                
+                // 진행률 업데이트
+                updateProgress(doc);
+
+                // 테이블과 페이지네이션 초기화
+                initializeTableAndPagination();
+                
+                spinnerContainer.style.display = 'none';
             })
-        .catch(error => {
-            console.error('Error:', error);
-            spinnerContainer.style.display = 'none';  // 오류 발생 시 스피너 숨김
+            .catch(error => {
+                console.error('Error:', error);
+                spinnerContainer.style.display = 'none';
+            });
         });
+    
+        // 초기 테이블 설정
+        initializeTableAndPagination();
+
     });
-
-});
-
-// 세션스토리지 초기화
-window.addEventListener("beforeunload", () => {
-    sessionStorage.clear();
-});
 
 </script>
 {% endblock %}
