@@ -626,6 +626,7 @@ def create_body_result(request) -> Response:
         data['student_class'] = user_info.student_class
         data['student_number'] = user_info.student_number
 
+    data['mobile_yn'] = 'y' # 모바일에서 생성했다는걸 나타내는 항목
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
 

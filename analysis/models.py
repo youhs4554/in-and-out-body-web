@@ -254,6 +254,7 @@ class BodyResult(models.Model):
     # S3 Pre-signed URL length 100 -> 300
     image_front_url = models.CharField(max_length=300, null=True)
     image_side_url = models.CharField(max_length=300, null=True)
+    mobile_yn = models.CharField(max_length=1, default='n')  # 체형 결과에서 키오스크와 모바일 구분하기 위함
     created_dt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
