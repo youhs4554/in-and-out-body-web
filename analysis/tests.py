@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse, resolve
 from django.contrib.auth import views as auth_views
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
 
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -51,11 +51,11 @@ class UrlsTestCase(SimpleTestCase):
 
     def test_token_obtain_pair_url(self):
         url = reverse('token_obtain_pair')
-        self.assertEqual(resolve(url).func.view_class, TokenObtainPairView)
+        self.assertEqual(resolve(url).func.view_class, CustomTokenObtainPairView)
 
     def test_token_refresh_url(self):
         url = reverse('token_refresh')
-        self.assertEqual(resolve(url).func.view_class, TokenRefreshView)
+        self.assertEqual(resolve(url).func.view_class, CustomTokenRefreshView)
 
     def test_request_auth_url(self):
         url = reverse('mobile-auth-request_auth')
