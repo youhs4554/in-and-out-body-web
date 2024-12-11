@@ -30,6 +30,8 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 
+# 응답코드 관련
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
 def home(request):
     if request.user.is_authenticated:
@@ -1060,50 +1062,109 @@ def get_info(requests):
                 type=openapi.TYPE_OBJECT,
                 properties={
                     'face_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Face level angle'),
-                    'shoulder_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Shoulder level angle'),
+                    'shoulder_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                           description='Shoulder level angle'),
                     'hip_level_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Hip level angle'),
                     'leg_length_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Leg length ratio'),
-                    'left_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Left leg alignment angle'),
-                    'right_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Right leg alignment angle'),
-                    'left_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Left back knee angle'),
-                    'right_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Right back knee angle'),
+                    'left_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                               description='Left leg alignment angle'),
+                    'right_leg_alignment_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                                description='Right leg alignment angle'),
+                    'left_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                           description='Left back knee angle'),
+                    'right_back_knee_angle': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                            description='Right back knee angle'),
                     'forward_head_angle': openapi.Schema(type=openapi.TYPE_NUMBER, description='Forward head angle'),
-                    'scoliosis_shoulder_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Scoliosis shoulder ratio'),
+                    'scoliosis_shoulder_ratio': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                               description='Scoliosis shoulder ratio'),
                     'scoliosis_hip_ratio': openapi.Schema(type=openapi.TYPE_NUMBER, description='Scoliosis hip ratio'),
-                    }),
-            'image_front': openapi.Schema(type=openapi.TYPE_STRING, description='base64 encoded bytes of the front image'),
-            'image_side': openapi.Schema(type=openapi.TYPE_STRING, description='base64 encoded bytes of the side image'),
+                },
+            ),
+            'image_front': openapi.Schema(type=openapi.TYPE_STRING,
+                                          description='Base64 encoded bytes of the front image'),
+            'image_side': openapi.Schema(type=openapi.TYPE_STRING,
+                                         description='Base64 encoded bytes of the side image'),
         },
-        required=['session_key', 'body_data'],  # Add any required fields here
+        required=['session_key', 'body_data', 'image_front', 'image_side'],  # Required fields
     ),
     responses={
-        200: 'OK; created_body_result successfully',
-        400: 'Bad Request; session_key is not provided in the request body',
-        401: 'Unauthorized; incorrect user or password',
-        404: 'Not Found; session_key is not found',
-        500: 'Internal Server Error'
+        200: openapi.Response(
+            description='OK; created_body_result successfully',
+            examples={
+                "application/json": {
+                    "message": "created_body_result",
+                    "status": 200
+                }
+            }
+        ),
+        400: openapi.Response(
+            description='Bad Request; session_key or body_data or image is missing, or image format is invalid',
+            examples={
+                "application/json": {
+                    "message": "session_key_required",
+                    "status": 400
+                }
+            }
+        ),
+        401: openapi.Response(
+            description='Unauthorized; user not found',
+            examples={
+                "application/json": {
+                    "message": "user_not_found",
+                    "status": 401
+                }
+            }
+        ),
+        404: openapi.Response(
+            description='Not Found; session_key is not found',
+            examples={
+                "application/json": {
+                    "message": "session_key_not_found",
+                    "status": 404
+                }
+            }
+        ),
+        500: openapi.Response(
+            description='Internal Server Error; unexpected error occurred',
+            examples={
+                "application/json": {
+                    "message": "An unexpected error occurred.",
+                    "status": 500
+                }
+            }
+        ),
     },
     tags=['analysis results']
 )
 @api_view(['POST'])
 def create_body_result(request):
     session_key = request.data.get('session_key')
+    # session_key가 없는 경우
     if not session_key:
-        return Response({'data': {'message': 'session_key_required', 'status': 400}})
+        return Response({'data': {'message': 'session_key_required', 'status': HTTP_400_BAD_REQUEST}},
+                        status=HTTP_400_BAD_REQUEST)
 
     body_data = request.data.get('body_data')
+    # body_data가 없는 경우
     if not body_data:
-        return Response({'data': {'message': 'body_data_required', 'status': 400}})
+        return Response({'data': {'message': 'body_data_required', 'status': HTTP_400_BAD_REQUEST}},
+                        status=HTTP_400_BAD_REQUEST)
 
     try:
+        # session_key를 기반으로 세션 정보 조회
         session_info = SessionInfo.objects.get(session_key=session_key)
     except SessionInfo.DoesNotExist:
-        return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
+        # 세션 정보가 없는 경우
+        return Response({'data': {'message': 'session_key_not_found', 'status': HTTP_404_NOT_FOUND}},
+                        status=HTTP_404_NOT_FOUND)
 
     try:
+        # 세션 정보에서 사용자 정보 조회
         user_info = UserInfo.objects.get(id=session_info.user_id)
     except UserInfo.DoesNotExist:
-        return Response({'data': {'message': 'user_not_found', 'status': 401}})
+        # 사용자 정보가 없는 경우
+        return Response({'data': {'message': 'user_not_found', 'status': HTTP_401_UNAUTHORIZED}},
+                        status=HTTP_401_UNAUTHORIZED)
 
     # 사용자의 학교 정보가 없는 경우에 채울 Temp School 정보
     null_school, created = SchoolInfo.objects.update_or_create(
@@ -1128,15 +1189,18 @@ def create_body_result(request):
     serializer = BodyResultSerializer(data=data)
 
     if serializer.is_valid():
+        # 데이터 저장
         serializer.save()
+        # 저장된 데이터의 생성 시간으로 파일 이름 생성
         created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
         image_front_bytes = request.data.get('image_front', None)
         image_side_bytes = request.data.get('image_side', None)
 
         try:
-            # 이미지 검증
+            # 이미지 검증 및 업로드
             if image_front_bytes and image_side_bytes:
                 try:
+                    # 이미지 검증
                     verified_front = verify_image(image_front_bytes)
                     verified_side = verify_image(image_side_bytes)
 
@@ -1144,21 +1208,31 @@ def create_body_result(request):
                     upload_image_to_s3(verified_front, file_keys=['front', created_dt])
                     upload_image_to_s3(verified_side, file_keys=['side', created_dt])
                 except ValueError as ve:
-                    return Response({'data': {'message': f"Invalid image format: {str(ve)}", 'status': 400}})
+                    # 이미지 형식이 잘못된 경우
+                    return Response(
+                        {'data': {'message': f"Invalid image format: {str(ve)}", 'status': HTTP_400_BAD_REQUEST}},
+                        status=HTTP_400_BAD_REQUEST)
             else:
+                # 누락된 이미지 확인
                 missing_images = []
                 if not image_front_bytes:
                     missing_images.append("image_front")
                 if not image_side_bytes:
                     missing_images.append("image_side")
-                return Response({'data': {'message': f"Missing images: {', '.join(missing_images)}", 'status': 400}})
+                return Response({'data': {'message': f"Missing images: {', '.join(missing_images)}",
+                                          'status': HTTP_400_BAD_REQUEST}}, status=HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            return Response({'data': {'message': str(e), 'status': 500}})
+            # 기타 예외 발생 시
+            return Response({'data': {'message': str(e), 'status': HTTP_500_INTERNAL_SERVER_ERROR}},
+                            status=HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({'data': {'message': 'created_body_result', 'status': 200}})
+        # 성공 응답
+        return Response({'data': {'message': 'created_body_result', 'status': HTTP_200_OK}}, status=HTTP_200_OK)
     else:
-        return Response({'data': {'message': serializer.errors, 'status': 500}})
+        # Serializer 유효성 검사 실패
+        return Response({'data': {'message': serializer.errors, 'status': HTTP_500_INTERNAL_SERVER_ERROR}},
+                        status=HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @swagger_auto_schema(

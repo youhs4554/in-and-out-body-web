@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse, resolve
 from django.contrib.auth import views as auth_views
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
 
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -51,11 +51,11 @@ class UrlsTestCase(SimpleTestCase):
 
     def test_token_obtain_pair_url(self):
         url = reverse('token_obtain_pair')
-        self.assertEqual(resolve(url).func.view_class, TokenObtainPairView)
+        self.assertEqual(resolve(url).func.view_class, CustomTokenObtainPairView)
 
     def test_token_refresh_url(self):
         url = reverse('token_refresh')
-        self.assertEqual(resolve(url).func.view_class, TokenRefreshView)
+        self.assertEqual(resolve(url).func.view_class, CustomTokenRefreshView)
 
     def test_request_auth_url(self):
         url = reverse('mobile-auth-request_auth')
@@ -206,12 +206,15 @@ class BodyResultTests(TestCase):
                 'forward_head_angle': 8.0,
                 'scoliosis_shoulder_ratio': 1.1,
                 'scoliosis_hip_ratio': 1.2,
-            }
+            },
+            'image_front': 'iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAKUlEQVR42u3NMQEAAAgDINc/9IyhBxQgnXYORCwWi8VisVgsFovFf+MF6PxZxcf+kXQAAAAASUVORK5CYII=',
+            'image_side': 'iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAKUlEQVR42u3NMQEAAAgDINc/9IyhBxQgnXYORCwWi8VisVgsFovFf+MF6PxZxcf+kXQAAAAASUVORK5CYII='
         }
 
     def test_get_body_result_success(self):
         # First, create a body result
-        self.kiosk_client.post(base_url + 'api/analysis/body/create_result/', self.body_data, format='json')
+        response = self.kiosk_client.post(base_url + 'api/analysis/body/create_result/', self.body_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Case 1 : using jwt Tokens (mobile)
         response = self.mobile_client.get(base_url + 'api/analysis/body/get_result/', {'id': 1}, format='json')
