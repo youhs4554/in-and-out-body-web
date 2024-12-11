@@ -275,6 +275,61 @@ def get_user(request):
 # group_id 들에 대한 CodeInfo 정보 반환
 # @param List group_id_list
 # 수정이력 : 240903 BS 작성
+@swagger_auto_schema(
+    method='get',
+    operation_description="""select code info list
+                            - group_id_list: list of group_id
+                            ex) 01, 02
+                            """,
+    manual_parameters=[
+        openapi.Parameter('group_id_list', openapi.IN_QUERY, description="group_id list", type=openapi.TYPE_INTEGER),
+    ],
+    responses={
+        200: openapi.Response(
+            description="Success",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    "data": openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "group_id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "code_id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "code_name": openapi.Schema(type=openapi.TYPE_STRING),
+                                "min_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "max_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "normal_min_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "normal_max_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "caution_min_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "caution_max_value": openapi.Schema(type=openapi.TYPE_NUMBER),
+                                "outline": openapi.Schema(type=openapi.TYPE_STRING),
+                                "risk": openapi.Schema(type=openapi.TYPE_STRING),
+                                "improve": openapi.Schema(type=openapi.TYPE_STRING),
+                                "recommended": openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), ),
+                                "title": openapi.Schema(type=openapi.TYPE_STRING),
+                                "title_outline": openapi.Schema(type=openapi.TYPE_STRING),
+                                "title_risk": openapi.Schema(type=openapi.TYPE_STRING),
+                                "title_improve": openapi.Schema(type=openapi.TYPE_STRING),
+                                "title_recommended": openapi.Schema(type=openapi.TYPE_STRING),
+                                "unit_name": openapi.Schema(type=openapi.TYPE_STRING),
+                                "seq_no": openapi.Schema(type=openapi.TYPE_INTEGER),
+                                "display_ticks": openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                                "direction": openapi.Schema(type=openapi.TYPE_STRING),
+                                "created_dt": openapi.Schema(type=openapi.TYPE_STRING, format="date-time"),
+                            }
+                        )
+                    ),
+                },
+            )
+        ),
+        400: 'Bad Request; group_id_list_required',
+        404: 'Not Found; code_not_found',
+    },
+    tags=['mobile']
+)
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def get_code(request):
