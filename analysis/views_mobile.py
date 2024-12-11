@@ -74,7 +74,7 @@ def login_mobile(request):
     except AuthInfo.DoesNotExist:
         return Response({'message': 'user_not_found'}, status=status.HTTP_200_OK)
 
-    authorized_user_info, user_created = UserInfo.objects.update_or_create(
+    authorized_user_info, user_created = UserInfo.objects.get_or_create(
         phone_number=auth_info.phone_number,
         defaults=dict(
             username=auth_info.phone_number,
@@ -153,7 +153,7 @@ def login_mobile_uuid(request):
 
     auth_info = AuthInfo.objects.update_or_create(uuid=uuid)[0]
 
-    authorized_user_info, user_created = UserInfo.objects.update_or_create(
+    authorized_user_info, user_created = UserInfo.objects.get_or_create(
         phone_number=auth_info.uuid,
         defaults=dict(
             username=auth_info.uuid,
@@ -382,16 +382,20 @@ def get_gait_result(request):
 # @param String? id : GaitResult의 id
 # 수정이력 : 240903 BS 작성
 # 수정이력 : 241203 - 페이지 네이션 추가
+# 수정이력 : 241211 - mobile_yn 필터링 추가
 @swagger_auto_schema(
     method='get',
     operation_description="""select body result list
     - page: page number. default 1
     - page_size: page size. default 10
+    - mobile: y: mobile, n: kiosk.
     """,
     manual_parameters=[
         openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
         openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(itmes)", type=openapi.TYPE_INTEGER,
                           default=10),
+        openapi.Parameter('mobile', openapi.IN_QUERY, description="'y': mobile, 'n': kiosk, none: all",
+                          type=openapi.TYPE_STRING),
     ],
     responses={
         200: openapi.Response(
@@ -447,13 +451,22 @@ def get_body_result(request):
     user_id = request.user.id
     page_size = request.GET.get("page_size", 10)  # 한 페이지에 보여줄 개수 - 가변적으로 설정 가능
     page = request.GET.get("page", 1)  # 만약 GET 요청에 아무런 정보가 없으면 default 1페이지로 설정
+    mobile = request.GET.get("mobile")  # mobile_yn 필터링
 
-    body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
+    # 기본 쿼리셋 정의
+    query_filters = {'user_id': user_id}
+
+    # mobile 파라미터가 있는 경우에만 필터 추가
+    if mobile is not None:
+        query_filters['mobile_yn'] = mobile
+
+    body_results = BodyResult.objects.filter(**query_filters).order_by('-created_dt')
+
     body_id = request.query_params.get('id', None)
     if body_id is not None:
         current_result = BodyResult.objects.filter(user_id=user_id, id=body_id).first()
         if not current_result:
-            return Response({"message": "body_result_not_found"}, )
+            return Response({"message": "body_result_not_found"})
 
         body_results = BodyResult.objects.filter(
             user_id=user_id,
@@ -607,13 +620,66 @@ def delete_body_result(request):
             'image_side': openapi.Schema(type=openapi.TYPE_STRING,
                                          description='base64 encoded bytes of the side image'),
         },
-        required=['body_data'],  # Add any required fields here
+        required=['body_data', 'image_front', 'image_side'],
     ),
     responses={
-        200: 'OK; created_body_result successfully',
-        400: 'Bad Request; token is not provided in the request body',
-        401: 'Unauthorized; incorrect user or password | user_not_found',
-        500: 'Internal Server Error'
+        200: openapi.Response(
+            description='Success',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'message': openapi.Schema(type=openapi.TYPE_STRING, example='created_body_result'),
+                        }
+                    )
+                }
+            )
+        ),
+        400: openapi.Response(
+            description='Bad Request',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'message': openapi.Schema(type=openapi.TYPE_STRING,
+                                                      example='token_required/body_data_required/Invalid image format'),
+                        }
+                    )
+                }
+            )
+        ),
+        401: openapi.Response(
+            description='Unauthorized',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'message': openapi.Schema(type=openapi.TYPE_STRING, example='user_not_found'),
+                        }
+                    )
+                }
+            )
+        ),
+        500: openapi.Response(
+            description='Internal Server Error',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'message': openapi.Schema(type=openapi.TYPE_STRING, example='Internal server error'),
+                        }
+                    )
+                }
+            )
+        ),
     },
     tags=['mobile']
 )
@@ -622,16 +688,16 @@ def delete_body_result(request):
 def create_body_result(request) -> Response:
     user_id = request.user.id
     if not user_id:
-        return Response({'data': {'message': 'token_required', 'status': 400}})
+        return Response({'data': {'message': 'token_required'}}, status=status.HTTP_400_BAD_REQUEST)
 
     body_data = request.data.get('body_data')
     if not body_data:
-        return Response({'data': {'message': 'body_data_required', 'status': 400}})
+        return Response({'data': {'message': 'body_data_required'}}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         user_info = UserInfo.objects.get(id=user_id)
     except UserInfo.DoesNotExist:
-        return Response({'data': {'message': 'user_not_found', 'status': 401}})
+        return Response({'data': {'message': 'user_not_found'}}, status=status.HTTP_401_UNAUTHORIZED)
 
     # 사용자의 학교 정보가 없는 경우에 채울 Temp School 정보
     null_school, created = SchoolInfo.objects.update_or_create(
@@ -656,7 +722,8 @@ def create_body_result(request) -> Response:
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
     if not serializer.is_valid():
-        return Response({'data': {'message': serializer.errors, 'status': 500}})  # 유효성 검사 실패
+        return Response({'data': {'message': serializer.errors}},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 유효성 검사 실패
 
     try:
         with transaction.atomic():  # 트랜잭션 시작 (만약 중간에 예외 발생 시 rollback -> DB 반영 X)
@@ -689,8 +756,8 @@ def create_body_result(request) -> Response:
                 raise ValueError("Missing images: " + ", ".join(missing_images))
 
     except ValueError as ve:
-        return Response({'data': {'message': str(ve), 'status': 400}})  # 잘못된 요청 (이미지 처리 실패 - 이미지 base64 관련 문제)
+        return Response({'data': {'message': str(ve)}}, status=status.HTTP_400_BAD_REQUEST)  # 잘못된 요청 (이미지 처리 실패)
     except Exception as e:
-        return Response({'data': {'message': str(e), 'status': 500}})  # 서버 에러 (AWS S3 에러)
+        return Response({'data': {'message': str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 서버 에러
 
-    return Response({'data': {'message': 'created_body_result', 'status': 200}})  # 성공 응답
+    return Response({'data': {'message': 'created_body_result'}}, status=status.HTTP_200_OK)  # 성공 응답
