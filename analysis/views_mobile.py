@@ -687,6 +687,7 @@ def delete_body_result(request):
                         type=openapi.TYPE_OBJECT,
                         properties={
                             'message': openapi.Schema(type=openapi.TYPE_STRING, example='created_body_result'),
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER, example='1843', description='created body result id'),
                         }
                     )
                 }
@@ -815,4 +816,8 @@ def create_body_result(request) -> Response:
     except Exception as e:
         return Response({'data': {'message': str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 서버 에러
 
-    return Response({'data': {'message': 'created_body_result'}}, status=status.HTTP_200_OK)  # 성공 응답
+    if serializer.data['id'] is not None:
+        return Response({'data': {'message': 'created_body_result', 'id': serializer.data['id']}},
+                    status=status.HTTP_200_OK)  # 성공 응답
+    else: # 방금 저장한 체형결과 INSERT가 제대로 수행되지 않았을 때(DB에 id가 없음) 처리
+        return Response({'data': {'message': 'created_body_result_id is Null'}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
