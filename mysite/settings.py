@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_yasg',
     'django_prometheus',
+    'django_apscheduler',
 ]
 
 REST_FRAMEWORK = {
@@ -92,6 +93,8 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+
 
 MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusBeforeMiddleware',
@@ -201,3 +204,10 @@ AUTH_USER_MODEL = 'analysis.UserInfo'	# [app].[모델명]
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+### django-apscheduler settings
+APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
+
+# 자동으로 스케쥴러 실행
+SCHEDULER_DEFAULT = True
