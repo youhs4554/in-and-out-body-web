@@ -26,30 +26,47 @@
 
     gtag('config', 'G-2RNGQ9YFFS');
     </script>
-
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <!-- 날짜 선택 드롭다운 -->
-                <form method="get" class="display: inline-block;">
-                    <label for="selected_date" class="mr-2" style="display:inline-block">날짜 선택:</label>
-                    <select name="selected_date" id="selected_date" onchange="this.form.submit()" style="display: inline-block;">
-                        <option value="">-- 날짜를 선택하세요 --</option>
-                        {% for date in sorted_dates %}
-                            <option value="{{ date }}" {% if date == selected_date or date == report_date %}selected{% endif %}>{{ date }}</option>
-                        {% endfor %}
-                </select>
-            </form>
-                {% if user.user_type == 'S' %}
-                    <h1 style="text-align:right; display:inline-block;">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
-                {% elif user.user_type == 'O' %}
-                <h1 style="text-align:end; display:inline-block;">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
-                {% else %}
-                <h1 style="text-align:end; display:inline-block;">(일반인 사용자) {{ user.student_name }} 님</h1>
-                {% endif %}
+        <div class="items-center justify-center flex user-type">
+            {% if user.user_type == 'S' %}
+                    <h1 class="antialiased hover:subpixel-antialiased">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+                    {% elif user.user_type == 'O' %}
+                    <h1 class="antialiased hover:subpixel-antialiased">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
+                    {% else %}
+                    <h1 class="antialiased hover:subpixel-antialiased">(일반인 사용자) {{ user.student_name }} 님</h1>
+                    {% endif %}
             </div>
 
+            {% if sorted_dates|length > 1 %} {% comment %} 이전 검사 결과들이 존재할 때만 표시 {% endcomment %}
+            <div class="justify-center flex dates-icon">
+                <i class="bi bi-calendar-check"> 이전 분석 결과</i>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <!-- 날짜 선택 및 점수 부분-->
+                <div class="date-score-container">
+                    <form method="get" class="date-selector">
+                        <div class="date-list">
+                            {% for date in sorted_dates %}
+                            <label class="date-item {% if date == selected_date or date == report_date %}selected{% endif %}">
+                                <input type="radio" name="selected_date" value="{{ date }}" 
+                                    {% if date == selected_date or date == report_date %}checked{% endif %}
+                                    onchange="this.form.submit()">
+                                <div class="date-content">
+                                    <div class="date-text">{{ date }}</div>
+                                    <div class="score-indicator">
+                                        <span class="emoji" id="emoji-{{ date }}"></span>
+                                        <span class="score" id="score-{{ date }}"></span>
+                                    </div>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}    
         <div class="main-title">체형 분석 결과</div>
 
         <!-- Result Image -->
@@ -74,14 +91,14 @@
         <!-- 종합 평가 -->
         <div class="mb-6">
             <div class="summary-sub-title">
-                나의 체형 종합 평가
+                나의 체형 종합 평가 
                 <span class="summary-info-icon" title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
                     ⓘ
                 </span>
             </div>
             <div class="summary-evaluation-container">
                 {% for item in report_items %}
-
+                    
                     <div class="summary-evaluation-row">
                         <div class="summary-title">{{ item.title }}</div>
                         <div class="summary-description">
@@ -117,7 +134,7 @@
                     <hr class="summary-divider-line" /> <!-- Divider line -->
                 {% endfor %}
             </div>
-        </div>
+        </div>        
         <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
             건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
         <!-- Divider -->
@@ -127,7 +144,6 @@
         {% for item in report_items %}
             <div class="main-title">체형 스캔</div>
             <div class="sub-title">스캔 항목</div>
-
             <div class="report-card">
                 <div class="left-content">
                     <div class="title">{{ item.title }}</div>
@@ -188,49 +204,117 @@
     </div>
 
     <script>
-        /** 정렬 함수 */
-        function sortTrendData(trendDataDict) {
-            // 날짜 포맷 함수 (yyyy-mm-dd)
-            function formatDate(date) {
-                const d = new Date(date);
-                const year = d.getFullYear();
-                const month = (d.getMonth() + 1).toString().padStart(2, '0'); // 1부터 시작
-                const day = d.getDate().toString().padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            const datesSize = '{{sorted_dates|length}}';
+            const originalTrendDataDict = {{ trend_data_dict|safe }};
+            const dateScores = {};
+    
+            // 날짜순 정렬을 위한 데이터 준비
+            const trendDataDict = {};
+            
+            // 날짜 기준 오름차순 정렬
+            Object.entries(originalTrendDataDict).forEach(([key, data]) => {
+                const combined = data.dates.map((date, index) => ({
+                    date: date,
+                    values: Object.keys(data)
+                        .filter(k => k !== "dates" && k !== "part")
+                        .reduce((acc, k) => {
+                            acc[k] = Array.isArray(data[k]) ? data[k][index] : data[k];
+                            return acc;
+                        }, {})
+                }));
+                
+                // 날짜순 정렬 (과거 -> 최신)
+                combined.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                const sortedData = { 
+                    dates: combined.map(item => item.date),
+                    part: data.part // part 데이터는 그대로 유지
+                };
+                Object.keys(data).forEach(key => {
+                    if (key !== "dates" && key !== "part") {
+                        sortedData[key] = combined.map(item => item.values[key]);
+                    }
+                });
+                trendDataDict[key] = sortedData;
+            });
 
-            // 각 항목의 데이터를 날짜 순서대로 정렬
-            Object.keys(trendDataDict).forEach(key => {
-                const data = trendDataDict[key];
-                const sortedIndices = data.dates
-                    .map((date, index) => ({ date: new Date(date), index }))
-                    .sort((a, b) => a.date - b.date) // 날짜 순으로 정렬
-                    .map(item => item.index); // 정렬된 인덱스 추출
-        
-                // 각 배열 값을 정렬된 순서에 따라 재배치
-                data.dates = sortedIndices.map(index => formatDate(data.dates[index])); // 날짜 형식 변환
-                if (data.val1) {
-                    data.val1 = sortedIndices.map(index => data.val1[index]);
+
+            // 점수 계산
+            {% for item in report_items %}
+            var itemAlias = '{{ item.alias }}';
+            var normalRange = {{ item.normal_range|safe }};
+            var trendData = trendDataDict[itemAlias];
+            
+            trendData.dates.forEach((date, index) => {
+                if (!dateScores[date]) {
+                    dateScores[date] = {normal: 0, total: 11};
                 }
-                if (data.val2) {
-                    data.val2 = sortedIndices.map(index => data.val2[index]);
-                }
-                if (data.values) {
-                    data.values = sortedIndices.map(index => data.values[index]);
-                }
-                if (data.part) {
-                    data.part = sortedIndices.map(index => data.part[index]);
+                
+                if (itemAlias === 'spinal_imbalance' || itemAlias === 'o_x_legs' || itemAlias === 'knee_angle') {
+                    const val1 = trendData.val1[index];
+                    const val2 = trendData.val2[index];
+                    if (val1 >= normalRange[0] && val1 <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
+                    if (val2 >= normalRange[0] && val2 <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
+                } else {
+                    const value = trendData.values[index];
+                    if (value >= normalRange[0] && value <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
                 }
             });
-        
-            return trendDataDict;
-        }
+            {% endfor %}
+
+            if (parseInt(datesSize) > 1) {
+            // 날짜별 점수 표시 업데이트
+            function updateDateScoreDisplay() {
+                Object.entries(dateScores).forEach(([date, score]) => {
+                    const emoji = document.getElementById(`emoji-${date}`);
+                    const scoreElement = document.getElementById(`score-${date}`);
+                    const ratio = score.normal / score.total;
+                    
+                    // 이모지 설정
+                    if (ratio >= 0.8) {
+                        emoji.textContent = '😊';
+                        scoreElement.className = 'score score-high';
+                    } else if (ratio >= 0.5) {
+                        emoji.textContent = '🙂';
+                        scoreElement.className = 'score score-medium';
+                    } else {
+                        emoji.textContent = '😟';
+                        scoreElement.className = 'score score-low';
+                    }
+                    
+                    // 점수 표시
+                    scoreElement.textContent = `점수 : ${score.normal}/${score.total}`;
+                });
+            }
+
+            // 선택된 날짜까지의 스크롤 함수
+            function scrollToSelectedDate() {
+                const container = document.querySelector('.date-score-container');
+                const selectedDate = document.querySelector('.date-item.selected');
+                
+                if (container && selectedDate) {
+                  const containerRect = container.getBoundingClientRect();
+                  const selectedRect = selectedDate.getBoundingClientRect();
+                  
+                  container.scrollLeft = selectedRect.left - containerRect.left + container.scrollLeft - (containerRect.width / 2) + (selectedRect.width / 2);
+                }
+              }
+            }
+            
+
+            
 
 
 
-        document.addEventListener('DOMContentLoaded', function() {
             // Prepare trend data as JSON
-            const trendDataDict = sortTrendData({{ trend_data_dict|safe }});
+            {% comment %} const trendDataDict = {{ trend_data_dict|safe }}; {% endcomment %}
             // Initialize charts for each item
             {% for item in report_items %}
                 var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
@@ -249,6 +333,11 @@
                     var margin = 0.01 * (maxValue - minValue);
                     var yMin = minValue - margin;
                     var yMax = maxValue + margin;
+
+                    trendDataDict['{{item.alias}}'].dates.forEach((date, index) => {
+                        // String을 10자로 자르기
+                        trendDataDict['{{item.alias}}'].dates[index] = date.slice(0, 10);
+                    });
 
                     new Chart(ctx, {
                         type: 'line',
@@ -315,6 +404,10 @@
                     var yMax = maxValue + margin;
                     var trendChart = document.getElementById('trendChart-{{ item.alias }}');
 
+                    trendDataDict['{{item.alias}}'].dates.forEach((date, index) => {
+                        trendDataDict['{{item.alias}}'].dates[index] = date.slice(0, 10);
+                    });
+
                     new Chart(ctx, {
                         type: 'line',
                         data: {
@@ -362,6 +455,11 @@
                     });
                 {% endif %}
             {% endfor %}
+
+            if (parseInt(datesSize) > 1) {
+                updateDateScoreDisplay();
+                scrollToSelectedDate();
+            }
         });
     </script>    
 </body>
