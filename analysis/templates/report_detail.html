@@ -27,7 +27,7 @@
     gtag('config', 'G-2RNGQ9YFFS');
     </script>
 </head>
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-100 p-6" id="report-body">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
         <div class="items-center justify-center flex user-type">
             {% if user.user_type == 'S' %}
@@ -40,8 +40,12 @@
             </div>
 
             {% if sorted_dates|length > 1 %} {% comment %} 이전 검사 결과들이 존재할 때만 표시 {% endcomment %}
-            <div class="justify-center flex dates-icon">
-                <i class="bi bi-calendar-check"> 이전 분석 결과</i>
+            <div class="justify-center flex dates-icon" style="align-items: center;">
+                <i class="bi bi-calendar-check"> 이전 분석 결과</i>&nbsp;
+                <h3 id="items_size" class="text-lg"></h3>
+            </div>
+            <div class="justify-center flex">
+            
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
             <!-- 날짜 선택 및 점수 부분-->
@@ -292,6 +296,9 @@
                     // 점수 표시
                     scoreElement.textContent = `점수 : ${score.normal}/${score.total}`;
                 });
+
+                const items_size = document.getElementById('items_size');
+                items_size.textContent = `총 ${datesSize}개의 검사 결과`;
             }
 
             // 선택된 날짜까지의 스크롤 함수

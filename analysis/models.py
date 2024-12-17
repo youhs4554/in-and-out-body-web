@@ -265,3 +265,27 @@ class BodyResult(models.Model):
             models.Index(fields=['user', 'created_dt'])
         ]
         ordering = ['-created_dt']
+
+### 체형 분석 결과에서 keypoints 들을 저장할 테이블
+### 모바일에서만 사용함 (null = True)
+class Keypoint(models.Model):
+    body_result = models.ForeignKey(
+        BodyResult,
+        on_delete=models.CASCADE,
+        related_name='keypoints',
+        null=True,
+        blank=True
+    )
+    index = models.IntegerField()
+    x = models.FloatField()
+    y = models.FloatField()
+    z = models.FloatField()
+    visibility = models.FloatField()
+    presence = models.FloatField()
+    created_dt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['body_result', 'index'])
+        ]
+        ordering = ['index']
