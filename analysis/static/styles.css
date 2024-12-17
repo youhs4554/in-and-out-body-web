@@ -1047,3 +1047,101 @@ label {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
 }
+
+
+
+
+
+
+.user-type h1 {
+    color: #333;
+    font-size: xx-large;
+    margin-bottom: 20px;
+}
+
+.dates-icon i {
+    font-size: xx-large; font-style: normal;
+    color: #333;
+    text-decoration: normal;
+}
+
+.date-score-container {
+    margin-bottom: 20px;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.date-list {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+}
+
+.date-item {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+.date-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.date-item input[type="radio"] {
+    display: none;
+}
+
+.date-item.selected {
+    border-color: #4CAF50;
+    background: #f0fff4;
+}
+
+.date-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.date-text {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.score-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.emoji {
+    font-size: 1.2rem;
+}
+
+.score {
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+/* 점수에 따른 스타일 */
+.score-high {
+    background-color: #c6f6d5;
+    color: #2f855a;
+}
+
+.score-medium {
+    background-color: #fefcbf;
+    color: #975a16;
+}
+
+.score-low {
+    background-color: #fed7d7;
+    color: #c53030;
+}
