@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from analysis.models import UserInfo, UserHist, SessionInfo, SchoolInfo, GaitResult, BodyResult, CodeInfo
+from analysis.models import UserInfo, UserHist, SessionInfo, SchoolInfo, GaitResult, BodyResult, CodeInfo, Keypoint
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -61,3 +61,10 @@ class BodyResponseSerializer(serializers.Serializer):
     data = BodyResultSerializer(many=True)
     message = serializers.CharField(default="OK")
     status = serializers.IntegerField(default=200)
+
+class KeypointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Keypoint
+        fields = ['body_result', 'x', 'y', 'z', 'visibility', 'presence']
+
+

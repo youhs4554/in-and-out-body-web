@@ -12,7 +12,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from analysis.helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image
 from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo, SchoolInfo, Keypoint
-from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer
+from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer, KeypointSerializer
 
 import pytz
 from django.core.paginator import Paginator  # 페이지네이션
@@ -725,13 +725,18 @@ def get_body_result_id(request, id):
         body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
 
         # DB 데이터 가공 -> keypoints
-        keypoints_data = [{
-            'x': kp.x,
-            'y': kp.y,
-            'z': kp.z,
-            'visibility': kp.visibility,
-            'presence': kp.presence
-        } for kp in body_result.keypoints.all()]
+        keypoint = body_result.keypoints.first()
+        keypoints_data = []
+
+        if keypoint:
+            for i in range(33):  # 33개의 keypoint
+                keypoints_data.append({
+                    'x': keypoint.x[i],
+                    'y': keypoint.y[i],
+                    'z': keypoint.z[i],
+                    'visibility': keypoint.visibility[i],
+                    'presence': keypoint.presence[i]
+                })
 
         serializer = BodyResultSerializer(body_result)
 
@@ -812,6 +817,7 @@ def delete_body_result(request):
     operation_summary="체형 결과 생성",
     operation_description="""Create a new body result record
     - mobile only
+    - AI server result --> image base64 add --> API request --> DB save
     - header: Bearer token required
     - results: Body data
     - keypoints: Pose Landmark
@@ -965,28 +971,38 @@ def create_body_result(request) -> Response:
         return Response({'data': {'message': serializer.errors}},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 유효성 검사 실패
 
+    keypoints_data = request.data.get('keypoints', [])
+    print(len(keypoints_data))
+    if not keypoints_data or len(keypoints_data) != 33:
+        return Response(
+            {'data': {'message': 'keypoints must contain exactly 33 objects'}},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     try:
         with transaction.atomic():  # 트랜잭션 시작 (만약 중간에 예외 발생 시 rollback -> DB 반영 X)
             body_result = serializer.save()
+
+            # keypoint JSON -> DB 데이터 가공 및 검증 절차
+            if keypoints_data:
+                keypoints = {
+                    'body_result': body_result.id,
+                    'x': [kp['x'] for kp in keypoints_data],
+                    'y': [kp['y'] for kp in keypoints_data],
+                    'z': [kp['z'] for kp in keypoints_data],
+                    'visibility': [kp['visibility'] for kp in keypoints_data],
+                    'presence': [kp['presence'] for kp in keypoints_data]
+                }
+                # keypoint 검증
+                keypoint_serializer = KeypointSerializer(data=keypoints)
+                if not keypoint_serializer.is_valid():
+                    raise Exception(keypoint_serializer.errors)
+
+            keypoint = keypoint_serializer.save()
+
             created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y%m%dT%H%M%S%f')
             image_front_bytes = request.data.get('image_front', None)
             image_side_bytes = request.data.get('image_side', None)
-
-            keypoints = []
-            for idx, kp in enumerate(keypoints_data):
-                keypoint = Keypoint(
-                    body_result=body_result,
-                    index=idx,
-                    x=kp['x'],
-                    y=kp['y'],
-                    z=kp['z'],
-                    visibility=kp['visibility'],
-                    presence=kp['presence']
-                )
-                keypoints.append(keypoint)
-
-            if keypoints:
-                Keypoint.objects.bulk_create(keypoints)
 
             # 이미지 업로드 시도
             if image_front_bytes and image_side_bytes:  # 두 개 이미지 모두 존재하는 경우
