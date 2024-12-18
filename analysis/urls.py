@@ -78,6 +78,8 @@ urlpatterns = [
     path('api/mobile/user/delete_user/',        views_mobile.delete_user,        name='mobile-user-delete_user'),        # 사용자
     path('api/mobile/code/get_code/',           views_mobile.get_code,           name='mobile-code-get_code'),           # 코드 정보 가져오기
     path('api/mobile/gait/get_gait_result/',    views_mobile.get_gait_result,    name='mobile-gait-get_gait_result'),    # 보행 결과 가져오기
+    path('api/mobile/body/get_body_result/<int:id>/',
+                                                views_mobile.get_body_result_id,       name='mobile-body-get_body_result'),    # 체형 결과 가져오기
     path('api/mobile/body/get_body_result/',    views_mobile.get_body_result,    name='mobile-body-get_body_result'),    # 체형 결과 가져오기
     path('api/mobile/gait/delete_gait_result/', views_mobile.delete_gait_result, name='mobile-body-delete_gait_result'), # 보행 결과 삭제
     path('api/mobile/body/delete_body_result/', views_mobile.delete_body_result, name='mobile-body-delete_body_result'), # 체형 결과 삭제
