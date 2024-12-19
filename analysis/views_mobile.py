@@ -972,7 +972,6 @@ def create_body_result(request) -> Response:
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 유효성 검사 실패
 
     keypoints_data = request.data.get('keypoints', [])
-    print(len(keypoints_data))
     if not keypoints_data or len(keypoints_data) != 33:
         return Response(
             {'data': {'message': 'keypoints must contain exactly 33 objects'}},

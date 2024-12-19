@@ -36,6 +36,7 @@ urlpatterns = [
     path('report/', views.report, name='report'),
     path('report/protected/', views.report_detail_protected, name='report_detail_protected'),
     path('report/<int:id>/', views.report_detail, name='report_detail'),
+    path('report_download/', views.report_download, name='report_download'),
     path('no-result/', views.no_result, name='no_result'),
     path('policy/', views.policy, name='policy'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),

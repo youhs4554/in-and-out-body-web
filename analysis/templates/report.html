@@ -32,6 +32,9 @@
         </form>
 </div>
 
+<!-- hr -->
+ <hr style="border-width:1px 0 0 0; border-color:#fff;"/>
+
 <!-- Spinner Container: Initially Hidden -->
 <div id="spinnerContainer" class="spinner-container" style="display: none;">
     <div class="spinner"></div>
@@ -48,11 +51,17 @@
 {% endif %}
 
 {% if user_results %}
-    <h3 class="group_title">
+<div style="display: flex; align-items: center; gap: 10px; margin-top:10px;">
+    <h3 class="group_title" style="margin: 0;">
         {% if request.user.user_type == 'S' %}
-            {{selected_year}}년
-        {% endif %} 
-        {{ selected_group }}의 분석 현황</h3>
+            {{ selected_year }}년
+        {% endif %}
+        {{ selected_group }}의 분석 현황
+    </h3>
+    <button id="report_download" style="background-color: #007bff; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px;">
+        <a href="{% url 'report_download' %}?year={{ selected_year }}&group={{ selected_group }}" style="color: white; text-decoration: none; padding:2px 0px 2px 0px">엑셀 다운로드</a>
+    </button>
+</div>
     <div class="table-container">
         <!-- 분석 현황 카드 추가 -->
         <div class="analysis-status-cards">
@@ -208,7 +217,7 @@
         }
     
 
-        /** 진행률 및 HTML 변수 업데이트 함수 */
+        /** 진행률 및 HTML 변수들 업데이트 함수 */
         function updateProgress(doc) {
             // 상단 선택된 그룹명 변경
             const groupTitle = document.querySelector('.group_title');
@@ -248,6 +257,14 @@
             if (progressBar && newProgressBar) {
                 progressBar.style.width = newProgressBar.style.width;
             }
+
+            const download_btn = document.querySelector("#report_download");
+            const new_download_btn = doc.querySelector("#report_download");
+            if (download_btn && new_download_btn) {
+                // new_download_btn으로 교체
+                download_btn.innerHTML = new_download_btn.innerHTML;
+            }
+
         }
     
         function updatePaginationButtons() {

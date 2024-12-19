@@ -10,7 +10,9 @@ import re
 from PIL import Image
 import boto3
 from django.conf import settings
-
+import requests
+from .models import BodyResult, CodeInfo
+from django.db.models import Q
 
 # 전역 변수 S3 클라이언트 생성
 s3_client = None
@@ -73,7 +75,7 @@ def upload_image_to_s3(image_data, file_keys):
             ContentType='image/png'
         )
     except Exception as e:  # AWS S3 이미지 업로드 실패
-        raise Exception("Failed to upload image") from e
+        raise Exception("Failed to upload image to S3") from e
 
 
 def generate_presigned_url(file_keys, expiration=settings.AWS_PRESIGNED_EXPIRATION):
@@ -176,3 +178,53 @@ def fetch_recent_mails(email_host, email_user, email_password, minutes=1,
 
 def extract_digits(text):
     return re.search(r'\d+', text).group()
+
+
+""" CodeInfo는 캐싱처리 """
+from django.core.cache import cache
+from functools import lru_cache
+
+
+@lru_cache(maxsize=None)
+def get_code_info_dict():
+    code_infos = CodeInfo.objects.all()
+    return {
+        code_info.code_id: {
+            'min': code_info.normal_min_value,
+            'max': code_info.normal_max_value,
+            'code_name': code_info.code_name
+        }
+        for code_info in code_infos
+    }
+
+
+def calculate_normal_ratio(body_result):
+    fields_to_check = [
+        'face_level_angle',
+        'shoulder_level_angle',
+        'hip_level_angle',
+        'leg_length_ratio',
+        'left_leg_alignment_angle',
+        'right_leg_alignment_angle',
+        'left_back_knee_angle',
+        'right_back_knee_angle',
+        'forward_head_angle',
+        'scoliosis_shoulder_ratio',
+        'scoliosis_hip_ratio'
+    ]
+
+    code_info_dict = get_code_info_dict()
+    true_count = 0
+    status_results = {}
+
+    for field in fields_to_check:
+        value = getattr(body_result, field)
+        if value is not None and field in code_info_dict:
+            normal_range = code_info_dict[field]
+            is_normal = normal_range['min'] <= value <= normal_range['max']
+            if is_normal:
+                true_count += 1
+            # CodeInfo의 code_name을 키로 사용하여 상태 저장
+            status_results[normal_range['code_name']] = '정상' if is_normal else '주의'
+
+    return f"{true_count}/{len(fields_to_check)}", status_results
