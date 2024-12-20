@@ -1043,7 +1043,7 @@ def create_body_result(request) -> Response:
     method='get',
     operation_summary="체형 결과 ID값 리스트 조회",
     operation_description="""select body result id list
-    - mobile only
+    - mobile created data only(mobile_yn = 'y')
     - JWT Token required    
     """,
     # 응답값 정의
@@ -1075,7 +1075,7 @@ def mobile_body_sync(request):
     # 사용자 Id
     user_id = request.user.id
     try:
-        user_body_id_list = BodyResult.objects.filter(user_id=user_id).values_list('id', flat=True)
+        user_body_id_list = BodyResult.objects.filter(user_id=user_id, mobile_yn='y').values_list('id', flat=True)
 
         return Response(
             {'data': {'message': 'success', 'body_results': user_body_id_list, 'itmes': len(user_body_id_list)}},
@@ -1095,7 +1095,7 @@ def mobile_gait_sync(request):  # 아직 사용 X
     # 사용자 Id
     user_id = request.user.id
     try:
-        user_gait_id_list = GaitResult.objects.filter(user_id=user_id).values_list('id', flat=True)
+        user_gait_id_list = GaitResult.objects.filter(user_id=user_id, mobile_yn='y').values_list('id', flat=True)
 
         return Response(
             {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'itmes': len(user_gait_id_list)}},
