@@ -1037,3 +1037,71 @@ def create_body_result(request) -> Response:
     else:  # 방금 저장한 체형결과 INSERT가 제대로 수행되지 않았을 때(DB에 id가 없음) 처리
         return Response({'data': {'message': 'created_body_result_id is Null'}},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="체형 결과 ID값 리스트 조회",
+    operation_description="""select body result id list
+    - mobile only
+    - JWT Token required    
+    """,
+    # 응답값 정의
+    responses={
+        200: openapi.Response(
+            description="Success",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    "data": openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "message": openapi.Schema(type=openapi.TYPE_STRING, description="Success message"),
+                            "body_results": openapi.Schema(type=openapi.TYPE_ARRAY,
+                                                           items=openapi.Schema(type=openapi.TYPE_INTEGER),
+                                                           description="Body result ID list"),
+                            "itmes": openapi.Schema(type=openapi.TYPE_INTEGER, description="Number of items")
+                        }
+                    )
+                }
+            )
+        ),
+        401: 'Unauthorized; user_not_found',
+    },
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def mobile_body_sync(request):
+    # 사용자 Id
+    user_id = request.user.id
+    try:
+        user_body_id_list = BodyResult.objects.filter(user_id=user_id).values_list('id', flat=True)
+
+        return Response(
+            {'data': {'message': 'success', 'body_results': user_body_id_list, 'itmes': len(user_body_id_list)}},
+            status=status.HTTP_200_OK)
+
+    except UserInfo.DoesNotExist:
+        return Response({'data': {'message': 'user_not_found'}}, status=status.HTTP_401_UNAUTHORIZED)
+
+    except Exception as e:
+        return Response({'data': {'message': str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def mobile_gait_sync(request):  # 아직 사용 X
+
+    # 사용자 Id
+    user_id = request.user.id
+    try:
+        user_gait_id_list = GaitResult.objects.filter(user_id=user_id).values_list('id', flat=True)
+
+        return Response(
+            {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'itmes': len(user_gait_id_list)}},
+            status=status.HTTP_200_OK)
+
+    except UserInfo.DoesNotExist:
+        return Response({'data': {'message': 'user_not_found'}}, status=status.HTTP_401_UNAUTHORIZED)
+
+
