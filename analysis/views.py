@@ -15,7 +15,7 @@ from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
-from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image
+from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image, calculate_normal_ratio
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo, UserHist
 from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
@@ -29,6 +29,10 @@ from datetime import datetime as dt
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
+from django.http import JsonResponse, HttpResponse
+from urllib.parse import quote
+import multiprocessing
+
 
 # 응답코드 관련
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
@@ -535,6 +539,107 @@ def report(request):
         'progress_percentage': progress_percentage,
         'is_registered': True,
     })
+
+
+@login_required
+def report_download(request):
+    user = request.user
+    selected_group = request.GET.get('group', None)
+    selected_year = request.GET.get('year', None)
+
+    if not selected_group or not selected_year or not user.is_authenticated:
+        return redirect('report')
+
+    # 사용자 목록 조회
+    if user.user_type == 'S':
+        match = re.search(r"(\d+)학년 (\d+)반", selected_group)
+        if selected_year == str(dt.now().year) and match:
+            users = UserInfo.objects.filter(
+                school__school_name=user.school.school_name,
+                student_grade=match.group(1),
+                student_class=match.group(2)
+            ).order_by('student_number')
+        else:
+            users = UserHist.objects.filter(
+                school__id=user.school.id,
+                student_grade=match.group(1),
+                student_class=match.group(2),
+                year=selected_year
+            ).order_by('student_number')
+    elif user.user_type == 'O':
+        users = UserInfo.objects.filter(
+            organization__organization_name=user.organization.organization_name,
+            department=selected_group
+        ).order_by('student_name')
+
+    # 한 번에 모든 사용자의 ID 리스트 생성
+    user_ids = [user.id if (selected_year == str(dt.now().year)) else user.user_id for user in users]
+
+    # 한 번의 쿼리로 모든 BodyResult 데이터 조회
+    body_results = BodyResult.objects.filter(
+        user_id__in=user_ids,
+        created_dt__year=selected_year,
+        image_front_url__isnull=False,
+        image_side_url__isnull=False,
+    ).select_related('user')
+
+    # {user_id : <BodyResult:QuerySet> }
+    body_results_dict = {}
+    for br in body_results:
+        if br.user_id not in body_results_dict:
+            body_results_dict[br.user_id] = br
+
+    # code_name 목록 가져오기
+    code_names = []
+    if body_results:
+        first_result = next(iter(body_results))
+        _, status_results = calculate_normal_ratio(first_result)
+        code_names = list(status_results.keys())
+
+    # 엑셀 데이터 생성
+    excel_data = []
+    for user in users:
+        user_id = user.id if (selected_year == str(dt.now().year)) else user.user_id
+        body_result = body_results_dict.get(user_id)
+
+        row_data = {
+            '학년': user.student_grade,
+            '반': user.student_class,
+            '번호': user.student_number,
+            '이름': user.student_name,
+            '검사일': body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S') if body_result else None,
+            '검사결과': 'O' if body_result else 'X',
+        }
+
+        if body_result:
+            ratio, status_results = calculate_normal_ratio(body_result)
+            row_data['정상범위'] = ratio
+            # 각 측정 항목의 상태(양호/주의)를 추가
+            for code_name, status in status_results.items():
+                row_data[code_name] = status
+        else:
+            row_data['정상범위'] = None
+            for code_name in code_names:
+                row_data[code_name] = None
+
+        excel_data.append(row_data)
+
+    # 데이터프레임 생성 (기본 컬럼 + code_name 컬럼들)
+    df = pd.DataFrame(excel_data)
+
+    # 컬럼 순서 설정
+    columns = ['학년', '반', '번호', '이름', '검사일', '검사결과', '정상범위'] + code_names
+    df = df[columns]
+
+    # 엑셀 파일 생성 및 반환
+    file_name = f"{selected_year}_{user.school.school_name}_{selected_group}.xlsx"
+    encoded_file_name = quote(file_name)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_file_name}"
+    df.to_excel(response, index=False)
+
+    return response
 
 
 # Example report items
