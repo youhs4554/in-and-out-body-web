@@ -155,12 +155,10 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% if user_results|length > 10 %}
         <div class="pagination-container">
             <button class="pagination-button" id="prevPage">이전</button>
             <button class="pagination-button" id="nextPage">다음</button>
         </div>
-        {% endif %}
     </div>
 {% endif %}
 
@@ -169,12 +167,12 @@
 <!-- Include JavaScript for Pagination and Fetch -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        let groupSelect = document.getElementById("group");
-        let form = document.getElementById("dataForm");
+        const groupSelect = document.getElementById("group");
+        const form = document.getElementById("dataForm");
         const spinnerContainer = document.getElementById("spinnerContainer");
-        let userResultsTableBody = document.getElementById('userResultsTableBody');
-        let yearGroupMap = JSON.parse('{{ year_group_map|escapejs|safe }}'); 
-        let userType = '{{ request.user.user_type }}';   
+        const userResultsTableBody = document.getElementById('userResultsTableBody');
+        const yearGroupMap = JSON.parse('{{ year_group_map|escapejs|safe }}'); 
+        const userType = '{{ request.user.user_type }}';   
         let yearSelect; 
 
         if (userType == 'S') {
@@ -183,9 +181,8 @@
         
         let rows = [];
         let currentPage = 1;
-        let rowsPerPage = 10;
+        const rowsPerPage = 10;
         let totalPages = 0;
-        let allRows = []; // 추가
 
         // 연도 선택에 따라 그룹 옵션 업데이트
         function updateGroupOptions() {
@@ -210,16 +207,13 @@
     
         /** 테이블과 페이지네이션 초기화 함수 */
         function initializeTableAndPagination() {
-            const userResultsTableBody = document.getElementById('userResultsTableBody');
-            if (!userResultsTableBody) return;  // 테이블이 없으면 함수 종료
-
-            allRows = Array.from(userResultsTableBody.querySelectorAll('tr')); // 전체 행 저장
-            if (allRows.length === 0) return;  // 행이 없으면 함수 종료
-
-            rows = [...allRows]; // 현재 표시할 행
-            totalPages = Math.ceil(rows.length / rowsPerPage);
-            currentPage = 1;
-            displayTable(currentPage);
+            if (userResultsTableBody) {
+                allRows = Array.from(userResultsTableBody.querySelectorAll('tr')); // 전체 행 저장
+                rows = [...allRows]; // 현재 표시할 행
+                totalPages = Math.ceil(rows.length / rowsPerPage);
+                currentPage = 1;
+                displayTable(currentPage);
+            }
         }
     
 
@@ -276,80 +270,35 @@
         function updatePaginationButtons() {
             const prevButton = document.getElementById("prevPage");
             const nextButton = document.getElementById("nextPage");
-            
-            // 버튼이 존재하지 않으면 함수 종료
-            if (!prevButton || !nextButton) return;
-            
             prevButton.style.display = currentPage > 1 ? '' : 'none';
             nextButton.style.display = currentPage < totalPages ? '' : 'none';
         }
     
         function displayTable(page) {
-            if (!rows || rows.length === 0) return;  // rows가 없으면 함수 종료
-        
             const startIndex = (page - 1) * rowsPerPage;
             const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
             
             rows.forEach((row, index) => {
                 row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
             });
-        
-            // 페이지네이션 버튼 업데이트는 rows가 10개 이상일 때만 실행
-            if (rows.length > 10) {
-                updatePaginationButtons();
-            }
+    
+            updatePaginationButtons();
         }
-        
         
         // 페이지네이션 버튼 이벤트 리스너
-        const prevButton = document.getElementById("prevPage");
-        const nextButton = document.getElementById("nextPage");
-        
-        if (prevButton && nextButton) {  // 버튼이 존재할 때만 이벤트 리스너 추가
-            prevButton.addEventListener("click", function() {
-                if (currentPage > 1) {
-                    currentPage--;
-                    displayTable(currentPage);
-                }
-            });
-        
-            nextButton.addEventListener("click", function() {
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    displayTable(currentPage);
-                }
-            });
-        }
-
-        function attachPaginationListeners() {
-            const prevButton = document.getElementById("prevPage");
-            const nextButton = document.getElementById("nextPage");
-            
-            if (prevButton && nextButton) {
-                // 기존 이벤트 리스너 제거
-                prevButton.replaceWith(prevButton.cloneNode(true));
-                nextButton.replaceWith(nextButton.cloneNode(true));
-                
-                // 새로운 참조 가져오기
-                const newPrevButton = document.getElementById("prevPage");
-                const newNextButton = document.getElementById("nextPage");
-                
-                // 새로운 이벤트 리스너 추가
-                newPrevButton.addEventListener("click", function() {
-                    if (currentPage > 1) {
-                        currentPage--;
-                        displayTable(currentPage);
-                    }
-                });
-            
-                newNextButton.addEventListener("click", function() {
-                    if (currentPage < totalPages) {
-                        currentPage++;
-                        displayTable(currentPage);
-                    }
-                });
+        document.getElementById("prevPage").addEventListener("click", function() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayTable(currentPage);
             }
-        }
+        });
+    
+        document.getElementById("nextPage").addEventListener("click", function() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayTable(currentPage);
+            }
+        });
     
         // 현재 연도 선택
         const currentYear = new Date().getFullYear().toString();
@@ -395,80 +344,32 @@
             fetch(form.action, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.text();
-            })
+            .then(response => response.text())
             .then(html => {
-                // HTML 파싱
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                
-                // 기존 테이블 컨테이너와 새로운 테이블 컨테이너 찾기
-                const existingContainer = document.querySelector('.table-container');
-                const newContainer = doc.querySelector('.table-container');
-                
-                if (!newContainer) {
-                    console.log('새로운 데이터를 찾을 수 없습니다.');
-                    if (existingContainer) {
-                        existingContainer.innerHTML = '<p>검색 결과가 없습니다.</p>';
-                    }
-                    return;
-                }
-        
-                // 테이블 컨테이너 업데이트
-                if (existingContainer) {
-                    // 기존 컨테이너가 있으면 내용만 업데이트
-                    existingContainer.innerHTML = newContainer.innerHTML;
-                } else {
-                    // 기존 컨테이너가 없으면 새로 추가
-                    const parentElement = document.querySelector('#user_results') || document.querySelector('.form-div').parentNode;
-                    parentElement.appendChild(newContainer.cloneNode(true));
-                }
-        
-                // 테이블 참조 업데이트
-                userResultsTableBody = document.getElementById('userResultsTableBody');
-                
-                // 진행률 정보 업데이트
-                updateProgress(doc);
-        
-                // 페이지네이션 초기화
-                if (userResultsTableBody) {
-                    const tableRows = userResultsTableBody.querySelectorAll('tr');
-                    if (tableRows.length > 0) {
-                        rows = Array.from(tableRows);
-                        totalPages = Math.ceil(rows.length / rowsPerPage);
-                        currentPage = 1;
-                        displayTable(currentPage);
 
-                        // 페이지네이션 버튼 이벤트 리스너 다시 연결
-                        attachPaginationListeners();
-                    }
-                }
-        
-                // 다운로드 버튼 업데이트
-                const downloadBtn = document.querySelector("#report_download");
-                const newDownloadBtn = doc.querySelector("#report_download");
-                if (downloadBtn && newDownloadBtn) {
-                    downloadBtn.innerHTML = newDownloadBtn.innerHTML;
-                }
+                // 테이블 데이터 업데이트
+                userResultsTableBody.innerHTML = doc.getElementById('userResultsTableBody').innerHTML;
+                
+                // 세션 스토리지 초기화
+                sessionStorage.clear();
+                
+                // 진행률 업데이트
+                updateProgress(doc);
+
+                // 테이블과 페이지네이션 초기화
+                initializeTableAndPagination();
+                
+                spinnerContainer.style.display = 'none';
             })
             .catch(error => {
-                console.error('Fetch Error:', error);
-                alert('데이터를 불러오는 중 오류가 발생했습니다.');
-            })
-            .finally(() => {
-                // 로딩 스피너 숨기기
+                console.error('Error:', error);
                 spinnerContainer.style.display = 'none';
             });
         });
-
+    
         // 초기 테이블 설정
         initializeTableAndPagination();
 
