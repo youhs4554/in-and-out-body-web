@@ -65,6 +65,5 @@ class BodyResponseSerializer(serializers.Serializer):
 class KeypointSerializer(serializers.ModelSerializer):
     class Meta:
         model = Keypoint
-        fields = ['body_result', 'x', 'y', 'z', 'visibility', 'presence']
-
+        fields = ['body_result', 'pose_type', 'x', 'y', 'z', 'visibility', 'presence']
 
