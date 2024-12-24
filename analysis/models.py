@@ -279,15 +279,21 @@ class BodyResult(models.Model):
 ### 체형 분석 결과에서 keypoints 들을 저장할 테이블
 ### 모바일에서만 사용함 (null = True)
 class Keypoint(models.Model):
-    body_result = models.ForeignKey(BodyResult, on_delete=models.CASCADE, related_name='keypoints', null=True)
-    x = ArrayField(models.FloatField(), size=33)
-    y = ArrayField(models.FloatField(), size=33)
-    z = ArrayField(models.FloatField(), size=33)
-    visibility = ArrayField(models.FloatField(), size=33)
-    presence = ArrayField(models.FloatField(), size=33)
-    created_dt = models.DateTimeField(auto_now_add=True)
+    body_result = models.ForeignKey(BodyResult, on_delete=models.CASCADE, related_name='keypoints')
+    pose_type = models.CharField(max_length=5, choices=[('front', 'Front'), ('side', 'Side')])
+    x = ArrayField(models.FloatField())
+    y = ArrayField(models.FloatField())
+    z = ArrayField(models.FloatField())
+    visibility = ArrayField(models.FloatField())
+    presence = ArrayField(models.FloatField())
 
     class Meta:
-        indexes = [
-            models.Index(fields=['body_result'])
+        # unique_together를 사용하여 (body_result, pose_type) 조합이 유일하도록 제한
+        unique_together = ('body_result', 'pose_type')
+        # 추가로 제약조건을 걸어 pose_type이 'front'나 'side'만 가능하도록 함
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(pose_type__in=['front', 'side']),
+                name='valid_pose_type'
+            )
         ]
