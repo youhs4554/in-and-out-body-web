@@ -412,7 +412,7 @@ def get_code(request):
     """,
     manual_parameters=[
         openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
-        openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(itmes)", type=openapi.TYPE_INTEGER,
+        openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(items)", type=openapi.TYPE_INTEGER,
                           default=10),
     ],
     responses={
@@ -499,7 +499,7 @@ def get_gait_result(request):
     """,
     manual_parameters=[
         openapi.Parameter('page', openapi.IN_QUERY, description="page number.", type=openapi.TYPE_INTEGER, default=1),
-        openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(itmes)", type=openapi.TYPE_INTEGER,
+        openapi.Parameter('page_size', openapi.IN_QUERY, description="page size(items)", type=openapi.TYPE_INTEGER,
                           default=10),
         openapi.Parameter('mobile', openapi.IN_QUERY, description="'y': mobile, 'n': kiosk, default: 'n'",
                           type=openapi.TYPE_STRING),
@@ -1108,7 +1108,7 @@ def create_body_result(request) -> Response:
                             "body_results": openapi.Schema(type=openapi.TYPE_ARRAY,
                                                            items=openapi.Schema(type=openapi.TYPE_INTEGER),
                                                            description="Body result ID list"),
-                            "itmes": openapi.Schema(type=openapi.TYPE_INTEGER, description="Number of items")
+                            "items": openapi.Schema(type=openapi.TYPE_INTEGER, description="Number of items")
                         }
                     )
                 }
@@ -1126,7 +1126,7 @@ def mobile_body_sync(request):
         user_body_id_list = BodyResult.objects.filter(user_id=user_id, mobile_yn='y').values_list('id', flat=True)
 
         return Response(
-            {'data': {'message': 'success', 'body_results': user_body_id_list, 'itmes': len(user_body_id_list)}},
+            {'data': {'message': 'success', 'body_results': user_body_id_list, 'items': len(user_body_id_list)}},
             status=status.HTTP_200_OK)
 
     except UserInfo.DoesNotExist:
@@ -1146,7 +1146,7 @@ def mobile_gait_sync(request):  # 아직 사용 X
         user_gait_id_list = GaitResult.objects.filter(user_id=user_id, mobile_yn='y').values_list('id', flat=True)
 
         return Response(
-            {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'itmes': len(user_gait_id_list)}},
+            {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'items': len(user_gait_id_list)}},
             status=status.HTTP_200_OK)
 
     except UserInfo.DoesNotExist:

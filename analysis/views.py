@@ -15,13 +15,15 @@ from django.contrib.auth.views import PasswordChangeView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
-from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image, calculate_normal_ratio
+from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image, \
+    calculate_normal_ratio
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo, UserHist
 from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
 
-from django.db.models import Min, Max, Exists, OuterRef
+from django.db.models import Min, Max, Exists, OuterRef, Count
 from django.db.models.functions import ExtractYear
+from django.db import transaction
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -33,13 +35,14 @@ from django.http import JsonResponse, HttpResponse
 from urllib.parse import quote
 import multiprocessing
 
-
 # 응답코드 관련
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, \
+    HTTP_500_INTERNAL_SERVER_ERROR
+
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('register')
+        return redirect('main')
     else:
         return redirect('login')
 
@@ -48,6 +51,283 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.urls import reverse_lazy
+
+
+@login_required
+def main(request):  # 추후 캐싱 기법 적용
+    user = request.user
+    context = {}
+
+    # 기관 등록 여부 확인
+    has_affiliation = bool(user.school or user.organization)
+
+    # 기관이 등록된 경우
+    if has_affiliation:
+        # 학교
+        if user.user_type == 'S':
+            # 유저 소속
+            user_affil = user.school.school_name
+
+            # 총 회원 수
+            members = UserInfo.objects.filter(
+                school__school_name=user.school.school_name
+            ).count()
+
+            # 총 검사 수
+            total_results = BodyResult.objects.filter(
+                user__school__school_name=user.school.school_name,
+                image_front_url__isnull=False,
+                image_side_url__isnull=False
+            ).count()
+
+            # 이번달 검사 수
+            current_month_results = BodyResult.objects.filter(
+                user__school__school_name=user.school.school_name,
+                image_front_url__isnull=False,
+                image_side_url__isnull=False,
+                created_dt__month=dt.now().month
+            ).count()
+
+            # 미완료 검사 수
+            # 소속된 학교의 모든 사용자 중 검사를 받지 않은 사용자 수
+            pending_tests = UserInfo.objects.filter(
+                school__id=user.school.id
+            ).exclude(
+                id__in=BodyResult.objects.filter(
+                    user__school__id=user.school.id,
+                    image_front_url__isnull=False,
+                    image_side_url__isnull=False,
+                    created_dt__year=dt.now().year
+                ).values('user_id')
+            ).count()
+
+            # 학교의 그룹 정보 가져오기
+            groups = UserInfo.objects.filter(
+                school__school_name=user.school.school_name
+            ).values('student_grade', 'student_class').annotate(student_count=Count('id')).order_by('student_grade',
+                                                                                                    'student_class')
+
+            # 학년-반 별 구성원 수를 포함하는 딕셔너리 초기화
+            group_structure = {}
+
+            # 학년별로 반 정보 구조화 및 구성원 수 추가
+            for group in groups:
+                if group['student_grade'] and group['student_class']:  # None 값 제외
+                    grade = str(group['student_grade'])
+                    class_num = str(group['student_class'])
+
+                    # 학년이 group_structure에 없으면 초기화
+                    if grade not in group_structure:
+                        group_structure[grade] = {}
+
+                    # 반이 학년의 딕셔너리에 없으면 초기화
+                    if class_num not in group_structure[grade]:
+                        group_structure[grade][class_num] = 0  # 초기화
+
+                    # 구성원 수 증가
+                    group_structure[grade][class_num] = group['student_count']  # 쿼리에서 가져온 학생 수로 설정
+
+
+        else:
+            # 유저 소속 - 기관
+            user_affil = user.organization.organization_name
+
+            # 총 회원 수
+            members = UserInfo.objects.filter(
+                organization__id=user.organization.id
+            ).count()
+
+            # 총 검사 수
+            total_results = BodyResult.objects.filter(
+                user__organization__id=user.organization.id,
+                image_front_url__isnull=False,
+                image_side_url__isnull=False
+            ).count()
+
+            # 이번달 검사 수
+            current_month_results = BodyResult.objects.filter(
+                user__organization__organization_name=user.organization.organization_name,
+                image_front_url__isnull=False,
+                image_side_url__isnull=False,
+                created_dt__month=dt.now().month
+            ).count()
+
+            # 미완료 검사 수
+            # 소속된 기관의 모든 사용자 중 검사를 받지 않은 사용자 수(문제점 : 작년도 유저까지 포함될 수 있음 - 2023년 가입인데 2024년에 갱신이 안된 경우)
+            # userInfo에서 organization__id=user.organization.id인 것 들 중에 BodyResult에 있는 user_id와 일치하지 않는 것들을 제외하고 count
+            pending_tests = UserInfo.objects.filter(
+                organization__id=user.organization.id
+            ).exclude(
+                id__in=BodyResult.objects.filter(
+                    user_id=OuterRef('id'),
+                    image_front_url__isnull=False,
+                    image_side_url__isnull=False
+                ).values('user_id')
+            ).count()
+
+            # 부서 : 구성원 수 구조화
+            group_structure = UserInfo.objects.filter(
+                organization__organization_name=user.organization.organization_name
+            ).values('department').annotate(count=Count('id')).order_by('department')
+
+            # None 결과(부서에 속해있지 않은) 제외한 딕셔너리로 변환
+            group_structure = {item['department']: item['count'] for item in group_structure if
+                               item['department'] is not None}
+
+            # 검사 완료율 계산 (퍼센트)
+            # test_completion_rate = ((members - pending_tests) / members * 100) if members > 0 else 0
+
+        year = dt.now().year
+        context.update({
+            'user_affil': user_affil,
+            'total_members': members,
+            'total_results': total_results,
+            'current_month_results': current_month_results,
+            'user_type': user.user_type,
+            'pending_tests': pending_tests,
+            'group_structure': group_structure,
+            'year': year,
+        })
+
+    context['has_affiliation'] = has_affiliation
+    return render(request, 'main.html', context)
+
+
+def org_register(request):
+    return render(request, 'org_register.html')
+
+
+def member_register(request):
+    user = request.user
+    type = user.user_type
+
+    if type not in ['S', 'O']:
+        return render(request, 'main.html', context={"message": "먼저 기관을 등록해주세요."})  # 'home' URL로 리디렉션
+
+    orgName = user.organization.organization_name if user.organization else user.school.school_name
+
+    if request.method == 'POST':
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                excel_file = request.FILES['file']
+                df = pd.read_excel(excel_file, dtype={'전화번호': str})  # 전화번호를 문자열로 읽음( 01000010001, 010-0001-0001) 다중 처리 위해서
+
+                # 컬럼 검증
+                expected_columns = ['학년', '반', '번호', '이름', '전화번호'] if type == 'S' else ['부서명', '이름', '전화번호']
+                if not all(col in df.columns for col in expected_columns):
+                    user_type_str = '교직원용' if type == 'S' else '일반 기관용'
+                    raise ValueError(f"올바른 템플릿이 아닙니다. {user_type_str} 템플릿을 다운로드 받아서 다시 시도해주세요.")
+
+                # NaN 값을 가진 행 제거
+                df = df.dropna(subset=['이름', '전화번호'])  # 이름과 전화번호는 필수값으로 처리
+
+                # 데이터 전처리
+                users = []
+                for _, row in df.iterrows():
+                    user_data = {}
+                    for col in expected_columns:
+                        if pd.notna(row[col]):
+                            # 숫자형 컬럼 처리
+                            if col in ['학년', '반', '번호'] and pd.notna(row[col]):
+                                user_data[col] = str(int(row[col]))  # float를 int로 변환 후 문자열로
+                            else:
+                                user_data[col] = str(row[col]).strip()
+
+                    if len(user_data) == len(expected_columns):  # 모든 필수 컬럼이 있는 경우만 추가
+                        users.append(user_data)
+
+                # 저장 요청인 경우
+                if request.POST.get('save') == 'true':
+                    with transaction.atomic():  # 트랜잭션 시작
+                        for user_data in users:
+                            phone_number = extract_digits(str(user_data['전화번호']).replace('-', ''))
+                            if phone_number.startswith('10'):
+                                phone_number = '0' + phone_number
+
+                            if type == 'S':
+                                school_info = SchoolInfo.objects.get(school_name=user.school.school_name)
+
+                                # 기존 사용자 확인 및 이력 저장
+                                existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
+                                if existing_user:
+                                    UserHist.objects.create(
+                                        user=existing_user,
+                                        school=existing_user.school,
+                                        student_grade=existing_user.student_grade,
+                                        student_class=existing_user.student_class,
+                                        student_number=existing_user.student_number,
+                                        student_name=existing_user.student_name,
+                                        year=existing_user.year
+                                    )
+
+                                # 사용자 정보 업데이트 또는 생성
+                                UserInfo.objects.update_or_create(
+                                    phone_number=phone_number,
+                                    defaults={
+                                        'school': school_info,
+                                        'student_grade': user_data['학년'],
+                                        'student_class': user_data['반'],
+                                        'student_number': user_data['번호'],
+                                        'student_name': user_data['이름'],
+                                        'username': phone_number,
+                                        'password': make_password(os.environ['DEFAULT_PASSWORD']),
+                                        'user_type': type,
+                                        'user_display_name': f"{school_info.school_name} {user_data['학년']}학년 {user_data['반']}반 {user_data['번호']}번 {user_data['이름']}",
+                                        'organization': None,
+                                        'department': None,
+                                        'year': dt.now().year
+                                    }
+                                )
+                            else:
+                                organization_info = OrganizationInfo.objects.get(
+                                    organization_name=user.organization.organization_name)
+
+                                # 기존 사용자 확인 및 이력 저장
+                                existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
+                                if existing_user:
+                                    UserHist.objects.create(
+                                        user=existing_user,
+                                        organization=existing_user.organization,
+                                        department=existing_user.department,
+                                        student_name=existing_user.student_name,  # 기관회원의 이름도 student_name에 저장
+                                        year=existing_user.year
+                                    )
+
+                                UserInfo.objects.update_or_create(
+                                    phone_number=phone_number,
+                                    defaults={
+                                        'organization': organization_info,
+                                        'department': user_data['부서명'],
+                                        'student_name': user_data['이름'],
+                                        'username': phone_number,
+                                        'password': make_password(os.environ['DEFAULT_PASSWORD']),
+                                        'user_type': type,
+                                        'user_display_name': f"{organization_info.organization_name} {user_data['이름']}",
+                                        'school': None,
+                                        'year': dt.now().year
+                                    }
+                                )
+
+                        return JsonResponse({'message': '성공적으로 저장되었습니다.'})
+
+                # 미리보기 요청인 경우
+                print(users)
+                return JsonResponse({
+                    'users': users,
+                    'columns': expected_columns
+                })
+
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
+    else:
+        form = UploadFileForm()
+
+    return render(request, 'member_register.html', {
+        'form': form,
+        'orgName': orgName,
+        'user_type': type
+    })
 
 
 def signup(request):
@@ -409,7 +689,7 @@ def report(request):
 
         if selected_year and selected_group:
             if selected_year != str(dt.now().year) and selected_year not in year_group_map:
-                error_message = '해당 연도에는 검사 결과가 없습니다.'
+                error_message = '해당 연도는 검사 결과가 없습니다.'
 
             # 정규 표현식으로 학년과 반 추출
             match = re.search(r"(\d+)학년 (\d+)반", selected_group)
@@ -543,9 +823,11 @@ def report(request):
 
 @login_required
 def report_download(request):
-    user = request.user
+    user_request = request.user
     selected_group = request.GET.get('group', None)
     selected_year = request.GET.get('year', None)
+
+    user = UserInfo.objects.get(id=user_request.id)
 
     if not selected_group or not selected_year or not user.is_authenticated:
         return redirect('report')
@@ -573,7 +855,11 @@ def report_download(request):
         ).order_by('student_name')
 
     # 한 번에 모든 사용자의 ID 리스트 생성
-    user_ids = [user.id if (selected_year == str(dt.now().year)) else user.user_id for user in users]
+    if user.user_type == 'S':  # 학교 사용자의 경우 (이전 년도가 포함될 수 있음 (UserHist))
+        user_ids = [user.id if (selected_year == str(dt.now().year)) else user.user_id for user in users]
+    else:  # 기관 사용자의 경우
+        user_ids = [user.id for user in users]
+        selected_year = str(dt.now().year)  # 기관 사용자의 경우 현재 년도만 조회 가능
 
     # 한 번의 쿼리로 모든 BodyResult 데이터 조회
     body_results = BodyResult.objects.filter(
@@ -602,14 +888,22 @@ def report_download(request):
         user_id = user.id if (selected_year == str(dt.now().year)) else user.user_id
         body_result = body_results_dict.get(user_id)
 
-        row_data = {
-            '학년': user.student_grade,
-            '반': user.student_class,
-            '번호': user.student_number,
-            '이름': user.student_name,
-            '검사일': body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S') if body_result else None,
-            '검사결과': 'O' if body_result else 'X',
-        }
+        if user.user_type == 'S':
+            row_data = {
+                '학년': user.student_grade,
+                '반': user.student_class,
+                '번호': user.student_number,
+                '이름': user.student_name,
+                '검사일': body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S') if body_result else None,
+                '검사결과': 'O' if body_result else 'X',
+            }
+        else:
+            row_data = {
+                '부서명': user.department,
+                '이름': user.student_name,
+                '검사일': body_result.created_dt.strftime('%Y-%m-%d %H:%M:%S') if body_result else None,
+                '검사결과': 'O' if body_result else 'X',
+            }
 
         if body_result:
             ratio, status_results = calculate_normal_ratio(body_result)
@@ -628,11 +922,17 @@ def report_download(request):
     df = pd.DataFrame(excel_data)
 
     # 컬럼 순서 설정
-    columns = ['학년', '반', '번호', '이름', '검사일', '검사결과', '정상범위'] + code_names
+    if user.user_type == 'S':
+        columns = ['학년', '반', '번호', '이름', '검사일', '검사결과', '정상범위'] + code_names
+    else:
+        columns = ['부서명', '이름', '검사일', '검사결과', '정상범위'] + code_names
     df = df[columns]
 
     # 엑셀 파일 생성 및 반환
-    file_name = f"{selected_year}_{user.school.school_name}_{selected_group}.xlsx"
+    if user.user_type == 'S':
+        file_name = f"{selected_year}_{user.school.school_name}_{selected_group}.xlsx"
+    else:
+        file_name = f"{selected_year}_{user.organization.organization_name}_{selected_group}.xlsx"
     encoded_file_name = quote(file_name)
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -662,6 +962,12 @@ def report_detail(request, id):
 def report_detail_protected(request):
     user_id = request.user.id
     return generate_report(request, user_id)
+
+
+@login_required
+def report_detail_report_id(request, id, report_id):
+    user_id = id
+    return generate_report(request, user_id, report_id)
 
 
 def generate_report(request, id, report_id=None):
@@ -793,7 +1099,7 @@ def generate_report(request, id, report_id=None):
                     else:
                         description = "측정값 없음"
                 if alias == 'spinal_imbalance':
-                    title = '척추 불균형'
+                    title = '척추 균형'
                     metric = '척추 기준 좌우 비율 차이 [%]'
                     pair_name = '척추-어깨' if i == 0 else '척추-골반'
                     if val:
@@ -925,12 +1231,15 @@ def generate_report(request, id, report_id=None):
 
     created_dt = body_result_latest.created_dt.strftime('%Y%m%dT%H%M%S%f')
 
+    front_img_url = generate_presigned_url(file_keys=['front', created_dt])
+    side_img_url = generate_presigned_url(file_keys=['side', created_dt])
+
     context = {
         'user': user,
         'report_items': report_items,
         'trend_data_dict': trend_data_dict,
-        'image_front_url': generate_presigned_url(file_keys=['front', created_dt]),
-        'image_side_url': generate_presigned_url(file_keys=['side', created_dt]),
+        'image_front_url': front_img_url,
+        'image_side_url': side_img_url,
         'sorted_dates': sorted_dates,  # 날짜 리스트
         'selected_date': selected_date,  # 선택한 날짜
     }
@@ -966,14 +1275,20 @@ def policy(request):
                     'swing_perc_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Swing percentage right'),
                     'stance_perc_l': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stance percentage left'),
                     'stance_perc_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stance percentage right'),
-                    'd_supp_perc_l': openapi.Schema(type=openapi.TYPE_NUMBER, description='Double support percentage left'),
-                    'd_supp_perc_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Double support percentage right'),
+                    'd_supp_perc_l': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                    description='Double support percentage left'),
+                    'd_supp_perc_r': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                    description='Double support percentage right'),
                     'toeinout_l': openapi.Schema(type=openapi.TYPE_NUMBER, description='Toe-in/out angle left'),
                     'toeinout_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Toe-in/out angle right'),
-                    'stridelen_cv_l': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stride length coefficient of variation left'),
-                    'stridelen_cv_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stride length coefficient of variation right'),
-                    'stridetm_cv_l': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stride time coefficient of variation left'),
-                    'stridetm_cv_r': openapi.Schema(type=openapi.TYPE_NUMBER, description='Stride time coefficient of variation right'),
+                    'stridelen_cv_l': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                     description='Stride length coefficient of variation left'),
+                    'stridelen_cv_r': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                     description='Stride length coefficient of variation right'),
+                    'stridetm_cv_l': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                    description='Stride time coefficient of variation left'),
+                    'stridetm_cv_r': openapi.Schema(type=openapi.TYPE_NUMBER,
+                                                    description='Stride time coefficient of variation right'),
                     'score': openapi.Schema(type=openapi.TYPE_NUMBER, description='Gait score'),
                 }
             ),
@@ -1035,10 +1350,16 @@ def create_gait_result(request):
     method='get',
     operation_description="Retrieve latest gait analysis results by session key",
     manual_parameters=[
-        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user", type=openapi.TYPE_STRING, required=True),
-        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
-        openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
-        openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user",
+                          type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results",
+                          type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('start_date', openapi.IN_QUERY,
+                          description="The start date for filtering results (format: YYYY-MM-DD)",
+                          type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('end_date', openapi.IN_QUERY,
+                          description="The end date for filtering results (format: YYYY-MM-DD)",
+                          type=openapi.TYPE_STRING, required=False),
     ],
     responses={
         200: GaitResponseSerializer,
@@ -1078,7 +1399,8 @@ def get_gait_result(request):
             start_date = datetime.strptime(start_date, "%Y-%m-%d")
         if not isinstance(end_date, datetime):
             end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-        gait_results = GaitResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+        gait_results = GaitResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by(
+            '-created_dt')
     else:
         gait_results = GaitResult.objects.filter(user_id=user_id).order_by('-created_dt')
         # id 값이 들어오면 해당 검사일자 이전 데이터를 가져온다.(240903 BS)
@@ -1103,11 +1425,13 @@ def get_gait_result(request):
 
     return Response({'data': serializer.data, 'message': 'OK', 'status': 200})
 
+
 @swagger_auto_schema(
     method='get',
     operation_description="Get information of gait & body analysis",
     manual_parameters=[
-        openapi.Parameter('name', openapi.IN_QUERY, description="Name of analysis (i.e., gait or body)", type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('name', openapi.IN_QUERY, description="Name of analysis (i.e., gait or body)",
+                          type=openapi.TYPE_STRING, required=True),
     ],
     responses={
         200: 'OK',
@@ -1344,10 +1668,16 @@ def create_body_result(request):
     method='get',
     operation_description="Retrieve latest body analysis results by session key",
     manual_parameters=[
-        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user", type=openapi.TYPE_STRING, required=True),
-        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results", type=openapi.TYPE_INTEGER, required=False),
-        openapi.Parameter('start_date', openapi.IN_QUERY, description="The start date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
-        openapi.Parameter('end_date', openapi.IN_QUERY, description="The end date for filtering results (format: YYYY-MM-DD)", type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('session_key', openapi.IN_QUERY, description="Session key for the current user",
+                          type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('count', openapi.IN_QUERY, description="The number of items to retrieve from latest results",
+                          type=openapi.TYPE_INTEGER, required=False),
+        openapi.Parameter('start_date', openapi.IN_QUERY,
+                          description="The start date for filtering results (format: YYYY-MM-DD)",
+                          type=openapi.TYPE_STRING, required=False),
+        openapi.Parameter('end_date', openapi.IN_QUERY,
+                          description="The end date for filtering results (format: YYYY-MM-DD)",
+                          type=openapi.TYPE_STRING, required=False),
     ],
     responses={
         200: BodyResultSerializer(many=True),
@@ -1387,7 +1717,8 @@ def get_body_result(request):
             start_date = datetime.strptime(start_date, "%Y-%m-%d")
         if not isinstance(end_date, datetime):
             end_date = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-        body_results = BodyResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by('-created_dt')
+        body_results = BodyResult.objects.filter(user_id=user_id, created_dt__range=(start_date, end_date)).order_by(
+            '-created_dt')
     else:
         body_results = BodyResult.objects.filter(user_id=user_id).order_by('-created_dt')
         id = request.query_params.get('id', None)
@@ -1410,9 +1741,11 @@ def get_body_result(request):
         body_result.image_front_url = generate_presigned_url(file_keys=['front', created_dt])
         body_result.image_side_url = generate_presigned_url(file_keys=['side', created_dt])
 
-        if body_result.image_front_url is not None and requests.get(body_result.image_front_url).status_code in [400, 404]:
+        if body_result.image_front_url is not None and requests.get(body_result.image_front_url).status_code in [400,
+                                                                                                                 404]:
             body_result.image_front_url = None
-        if body_result.image_side_url is not None and requests.get(body_result.image_side_url).status_code in [400, 404]:
+        if body_result.image_side_url is not None and requests.get(body_result.image_side_url).status_code in [400,
+                                                                                                               404]:
             body_result.image_side_url = None
 
         updated_body_results.append(body_result)
@@ -1440,12 +1773,12 @@ def get_body_result(request):
         200: openapi.Response('Success', openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={'data':
-                        openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Generated session key'),
-                            }),
-        })  ),
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'session_key': openapi.Schema(type=openapi.TYPE_STRING, description='Generated session key'),
+                    }),
+            })),
         400: 'Bad Request; kiosk_id is not provided in the request body',
     },
     tags=['kiosk']
@@ -1509,11 +1842,14 @@ def login_kiosk_id(request):
         return Response({'data': {"message": "user_not_found", 'status': 401}})
 
     if not check_password(password, user_info.password) and (phone_number == user_info.phone_number):
-        return Response({'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
+        return Response(
+            {'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
     else:
         session_info.user_id = user_info.id
         session_info.save()
-        return Response({'data' : {'message': 'login_success', 'status': 200}, 'message': 'login_success', 'status': 200})
+        return Response(
+            {'data': {'message': 'login_success', 'status': 200}, 'message': 'login_success', 'status': 200})
+
 
 @swagger_auto_schema(
     method='get',
@@ -1526,12 +1862,12 @@ def login_kiosk_id(request):
             type=openapi.TYPE_OBJECT,
             properties={
                 'data': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
-                                'status': openapi.Schema(type=openapi.TYPE_INTEGER, description='Status Code'),
-                            }
-                        )})),
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'user_info': openapi.Schema(type=openapi.TYPE_OBJECT, description='User information'),
+                        'status': openapi.Schema(type=openapi.TYPE_INTEGER, description='Status Code'),
+                    }
+                )})),
         400: 'Bad Request; session_key is not provided in the request body',
         401: 'Unauthorized; incorrect user or password',
         404: 'Not Found; session_key is not found',
@@ -1553,7 +1889,7 @@ def get_userinfo_session(request):
     except UserInfo.DoesNotExist:
         return Response({"data": {"message": "user_not_found", "status": 401}})
 
-    return Response({'data' : parse_userinfo(user_info), 'message': 'OK', 'status': 200})
+    return Response({'data': parse_userinfo(user_info), 'message': 'OK', 'status': 200})
 
 
 @swagger_auto_schema(
@@ -1584,4 +1920,8 @@ def end_session(request):
         return Response({'data': {'message': 'session_key_not_found', 'status': 404}})
 
     session_info.delete()
-    return Response({'data' : {'message': 'session_closed', 'status': 200}, 'message': 'session_closed', 'status': 200})
+    return Response({'data': {'message': 'session_closed', 'status': 200}, 'message': 'session_closed', 'status': 200})
+
+
+
+

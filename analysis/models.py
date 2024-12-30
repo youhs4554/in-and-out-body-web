@@ -104,11 +104,14 @@ class UserInfo(AbstractUser):
 
 class UserHist(models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
-    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
+    school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
+    organization = models.ForeignKey(OrganizationInfo, on_delete=models.CASCADE, null=True,
+                                     blank=True)  # Allow null values
     student_grade = models.IntegerField(null=True)
     student_class = models.IntegerField(null=True)
     student_number = models.IntegerField(null=True)
     student_name = models.CharField(max_length=100, null=True, blank=True)
+    department = models.CharField(max_length=100, null=True, blank=True)
     year = models.IntegerField(null=True)
     created_dt = models.DateTimeField(auto_now_add=True)
 

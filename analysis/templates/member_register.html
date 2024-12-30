@@ -1,0 +1,778 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Main Page{% endblock %}
+
+{% block content %}
+
+<div class="page-transition-wrapper">
+<div class="dashboard-container">
+    {% if user_type == 'S' %} <!-- 소속이 학교 일 경우 학교 아이콘 -->
+                <i class="fas fa-school" style="font-size: 3rem; color: #111;"></i>
+                <h2 class="welcome-title">{{ orgName }}</h2>
+                {% else %} <!-- 소속이 기업일 경우 기업(기관) 아이콘 -->
+                <i class="fas fa-building" style="font-size: 3rem; color: #111;"></i>
+                <h2 class="welcome-title">{{ orgName }}</h2>
+                {% endif %}
+    
+    <!-- 성공/실패 알림 -->
+    <div class="alert alert-success" style="display: none;">
+        <strong>성공!</strong> 사용자를 성공적으로 등록하였습니다.
+    </div>
+    <div class="alert alert-error" style="display: none;"></div>
+    
+    <!-- 사용법 섹션 -->
+     <div class="info_container">
+        <h2><i class="fas fa-info-circle"></i> 사용법</h2>
+        <p id="info_text">아래의 템플릿을 다운로드하여 엑셀 파일을 작성한 후 업로드해주세요.</p>
+        {% if user_type == 'S' %}
+        <div class="excel-preview">
+            <table class="excel-table">
+                <thead>
+                    <tr>
+                        <th>학년</th>
+                        <th>반</th>
+                        <th>번호</th>
+                        <th>이름</th>
+                        <th>전화번호</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>2</td>
+                        <td>10</td>
+                        <td>홍길동</td>
+                        <td>010-0000-0000</td>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td>2</td>
+                        <td>11</td>
+                        <td>김철수</td>
+                        <td>010-1111-1111</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif user_type == 'O' %}
+    <div class="excel-preview">
+        <table class="excel-table">
+            <thead>
+                <tr>
+                    <th>부서명</th>
+                    <th>이름</th>
+                    <th>전화번호</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>영업부</td>
+                    <td>홍길동</td>
+                    <td>010-0000-0000</td>
+                </tr>
+                <tr>
+                    <td>인사부</td>
+                    <td>김철수</td>
+                    <td>010-1111-1111</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+    {% endif %}
+     </div>
+
+     <!-- 템플릿 다운로드 섹션 -->
+    <div class="content-grid" id="initialContent">
+        <div class="card-container">
+            {% if user_type == 'S' %}
+            <div class="feature-card">
+                <div class="card-header">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <h4>교직원용 템플릿</h4>
+                </div>
+                <div class="card-body">
+                    <p>학교 구성원 등록용</p>
+                    <a href="{% static '교직원용 템플릿.xlsx' %}" download class="download-btn">
+                        다운로드 <i class="fas fa-arrow-down"></i>
+                    </a>
+                </div>
+            </div>
+            {% elif user_type == 'O' %}
+            <div class="feature-card">
+                <div class="card-header">
+                    <i class="fas fa-building"></i>
+                    <h4>일반 기관용 템플릿</h4>
+                </div>
+                <div class="card-body">
+                    <p>기업/기관 구성원 등록용</p>
+                    <a href="{% static '일반기관용 템플릿.xlsx' %}" download class="download-btn">
+                        다운로드 <i class="fas fa-arrow-down"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 파일 업로드 카드 -->
+            <div class="feature-card upload-card">
+                <div class="card-header">
+                    <i class="fas fa-upload"></i>
+                    <h4>구성원 등록</h4>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="dropzone" id="dragDropArea" onclick="document.getElementById('fileInput').click();">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>파일을 드래그하거나 클릭하여 업로드하세요</p>
+                            <input type="file" name="file" id="fileInput" accept=".xlsx" style="display: none;" />
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="function-container">
+        <!-- 파일 정보 섹션 수정 -->
+    <div id="fileinfoSection" class="function-section" style="display: none;">
+        <div class="file-info">
+            <i class="fas fa-file-excel"></i>
+            <span id="uploadedFileName">파일 이름</span>
+        </div>
+        <div class="button-group">
+            <button id="resetButton" class="reset-btn">처음부터</button>
+            <button id="confirmButton" class="confirm-btn">최종 저장</button>
+        </div>
+    </div>
+    </div>
+    
+
+    <!-- 업로드 결과 테이블 -->
+    <div id="tableContainer" class="result-section" style="display: none;">
+        <div class="result-header">
+            <h3><i class="fas fa-list"></i> 등록 현황</h3>
+            <span class="total-count">총 <strong id="totalCount">0</strong>명</span>
+        </div>
+        <div class="table-wrapper">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        {% for column in columns %}
+                            <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            {% for column in columns %}
+                                <td>{{ user|get_item:column }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <button id="prevPage" class="page-btn"><i class="fas fa-chevron-left"></i> 이전</button>
+            <button id="nextPage" class="page-btn">다음 <i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- 로딩 스피너 -->
+    <div id="spinnerContainer" class="spinner-container" style="display: none;">
+        <div class="spinner"></div>
+        <p>업로드 중입니다...</p>
+    </div>
+</div>
+</div>
+<style>
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.function-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.function-section {
+    border-radius: 15px;
+    border: 1px solid #e1e4e8;
+    background: #fff;
+    width: 90%;
+    margin: 0rem auto;
+    padding: 2rem;
+}
+
+.info_container {
+    border-radius: 15px;
+    border: 1px solid #e1e4e8;
+    background: #fff;
+    width: 90%;
+    margin: 2rem auto;
+    padding: 2rem;
+}
+
+.excel-preview {
+    margin: 1.5rem 0;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
+}
+
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 0.9rem;
+}
+
+.excel-table th {
+    background: #f1f3f4;
+    border: 1px solid #e1e4e8;
+    padding: 8px 12px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.excel-table td {
+    border: 1px solid #e1e4e8;
+    padding: 8px 12px;
+    text-align: center;
+}
+
+.excel-table tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.excel-table tr:hover {
+    background: #f5f5f5;
+}
+
+.info_container > h2, 
+.info_container > p {  /* p 선택자를 더 구체적으로 지정 */
+    width: 100%;  /* 부모 컨테이너 기준으로 설정 */
+    margin: 0 auto;  
+    margin-bottom: 10px;
+}
+
+.welcome-section {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.content-grid {
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.card-header i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.card-header h4 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 2rem;
+    text-align: center;
+}
+
+.download-btn {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    background: #4CAF50;
+    color: white;
+    border-radius: 25px;
+    text-decoration: none;
+    transition: background 0.3s ease;
+    margin-top: 1rem;
+}
+
+.download-btn:hover {
+    background: #45a049;
+}
+
+.dropzone {
+    border: 2px dashed #4CAF50;
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.dropzone:hover {
+    border-color: #45a049;
+    background: #f0f2f0;
+}
+
+.dropzone i {
+    font-size: 2.5rem;
+    color: #4CAF50;
+    margin-bottom: 1rem;
+}
+
+.dropzone p {
+    color: #666;
+    margin: 0;
+}
+
+.upload-card .card-body {
+    padding: 1.5rem;
+}
+
+.result-section {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.table-wrapper {
+    margin: 1rem 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.page-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    background: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.page-btn:hover {
+    background: #45a049;
+}
+
+/* 페이지 트랜지션 스타일 */
+.page-transition-wrapper {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@media (max-width: 768px) {
+    .card-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .feature-card {
+        margin: 0 1rem;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 알림 스타일 */
+.alert {
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 8px;
+    display: none;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+/* 스피너 스타일 */
+.spinner-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 파일 정보 섹션 스타일 추가 */
+.info-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: none;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.confirm-btn {
+    padding: 0.8rem 1.5rem;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.confirm-btn:hover {
+    background: #45a049;
+}
+
+/* 버튼 그룹 스타일 추가 */
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.reset-btn {
+    padding: 0.8rem 1.5rem;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.reset-btn:hover {
+    background: #c82333;
+}
+</style>
+    <!-- Include SheetJS Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const dragDropArea = document.getElementById('dragDropArea');
+    const tableContainer = document.getElementById('tableContainer');
+    const dataTable = document.getElementById('dataTable');
+    const spinnerContainer = document.getElementById('spinnerContainer');
+    const successAlert = document.querySelector('.alert-success');
+    const errorAlert = document.querySelector('.alert-error');
+    const totalCountElement = document.getElementById('totalCount');
+    
+    let currentPage = 1;
+    const rowsPerPage = 10;
+    let uploadedData = null;
+
+    // 드래그 앤 드롭 이벤트 핸들러
+    dragDropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dragDropArea.classList.add('dragover');
+    });
+
+    dragDropArea.addEventListener('dragleave', () => {
+        dragDropArea.classList.remove('dragover');
+    });
+
+    dragDropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragDropArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    // 파일 입력 변경 이벤트
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileUpload(e.target.files[0]);
+        }
+    });
+
+    // 파일 업로드 처리 함수 수정
+    function handleFileUpload(file) {
+        if (!file.name.endsWith('.xlsx')) {
+            showError('엑셀 파일(.xlsx)만 업로드 가능합니다.');
+            return;
+        }
+
+        spinnerContainer.style.display = 'flex';
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        // 초기 컨텐츠 숨기기
+        document.getElementById('initialContent').style.display = 'none';
+
+        // 미리보기 요청
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => 
+            response.json().then(data => {
+                if (!response.ok) {
+                    throw new Error(data.error || '파일 업로드 중 오류가 발생했습니다.');
+                }
+                return data;
+            })
+        )
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            uploadedData = data;
+            displayPreview(data);
+            document.getElementById('fileinfoSection').style.display = 'block';
+            document.getElementById('uploadedFileName').textContent = file.name;
+            document.querySelector('.excel-preview').style.display = 'none';
+            document.getElementById('info_text').innerHTML = '등록 현황 확인 후 "<strong>최종 저장</strong>" 버튼을 클릭해주세요.';
+            hideError();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError(error.message);
+            resetInterface();
+            document.getElementById('initialContent').style.display = 'block';
+        })
+        .finally(() => {
+            spinnerContainer.style.display = 'none';
+        });
+    }
+
+    // 미리보기 표시 함수
+    function displayPreview(data) {
+        const { users, columns } = data;
+        
+        // 테이블 헤더 생성
+        const headerRow = dataTable.querySelector('thead tr');
+        headerRow.innerHTML = columns.map(col => `<th>${col}</th>`).join('');
+
+        // 데이터 표시
+        displayTablePage(users, currentPage);
+        
+        // 총 개수 업데이트
+        totalCountElement.textContent = users.length;
+        
+        // 테이블 컨테이너 표시
+        tableContainer.style.display = 'block';
+        
+        // 페이지네이션 업데이트
+        updatePagination(users.length);
+    }
+
+    // 페이지별 데이터 표시
+    function displayTablePage(users, page) {
+        const start = (page - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const pageUsers = users.slice(start, end);
+
+        const tbody = dataTable.querySelector('tbody');
+        tbody.innerHTML = pageUsers.map(user => `
+            <tr>
+                ${Object.values(user).map(value => `<td>${value}</td>`).join('')}
+            </tr>
+        `).join('');
+    }
+
+    // 페이지네이션 업데이트
+    function updatePagination(totalUsers) {
+        const totalPages = Math.ceil(totalUsers / rowsPerPage);
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage === totalPages;
+    }
+
+    // 페이지네이션 이벤트 리스너
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            displayTablePage(uploadedData.users, currentPage);
+            updatePagination(uploadedData.users.length);
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(uploadedData.users.length / rowsPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            displayTablePage(uploadedData.users, currentPage);
+            updatePagination(uploadedData.users.length);
+        }
+    });
+
+    // 최종 저장 버튼 클릭 이벤트
+    document.getElementById('confirmButton').addEventListener('click', () => {
+        if (!uploadedData) {
+            showError('업로드된 파일이 없습니다.');
+            return;
+        }
+
+        spinnerContainer.style.display = 'flex';
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('save', 'true');
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            showSuccess('성공적으로 저장되었습니다.');
+            resetInterface();
+        })
+        .catch(error => {
+            showError(error.message);
+        })
+        .finally(() => {
+            spinnerContainer.style.display = 'none';
+        });
+    });
+
+    // 에러 표시 함수 수정
+    function showError(message) {
+        const errorAlert = document.querySelector('.alert-error');
+        errorAlert.textContent = message;
+        errorAlert.style.display = 'block';
+        document.querySelector('.alert-success').style.display = 'none';
+        
+        // 에러 메시지를 화면에 표시할 때 스크롤
+        errorAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // 성공 메시지 표시 함수
+    function showSuccess(message) {
+        successAlert.textContent = message;
+        successAlert.style.display = 'block';
+        errorAlert.style.display = 'none';
+    }
+
+    // 에러 숨기기 함수
+    function hideError() {
+        document.querySelector('.alert-error').style.display = 'none';
+        document.querySelector('.alert-success').style.display = 'none';
+    }
+
+    // 인터페이스 초기화 함수 수정
+    function resetInterface() {
+        uploadedData = null;
+        currentPage = 1;
+        fileInput.value = '';
+        tableContainer.style.display = 'none';
+        document.querySelector('.excel-preview').style.display = 'block';
+        document.getElementById('fileinfoSection').style.display = 'none';
+        document.getElementById('info_text').textContent = '아래의 템플릿을 다운로드하여 엑셀 파일을 작성한 후 업로드해주세요.';
+        document.querySelector('#initialContent').style.display = 'block';
+    }
+
+    // 처음부터 버튼 이벤트 리스너 수정
+    document.getElementById('resetButton').addEventListener('click', () => {
+        resetInterface();
+    });
+});
+</script>
+{% endblock %}
+
+
+
