@@ -2,6 +2,8 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
+from analysis.custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
+
 from . import views, views_mobile
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -14,25 +16,26 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
-from .custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
-
-schema_view = get_schema_view( 
-    openapi.Info( 
-        title="Swagger API Document of In-and-Out-Body", 
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Swagger API Document of In-and-Out-Body",
         default_version="v1",
-        description="In-and-Out-Body API 문서 입니다.", 
-        terms_of_service="https://www.google.com/policies/terms/", 
+        description="In-and-Out-Body API 문서 입니다.",
+        terms_of_service="https://www.google.com/policies/terms/",
         license=openapi.License(name="BSD License"),
-    ), 
+    ),
     public=True,
-    permission_classes=(permissions.AllowAny,), 
+    permission_classes=(permissions.AllowAny,),
 )
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='register'), name='login'),
+    path('login/', auth_views.LoginView.as_view(template_name='login.html', redirect_authenticated_user=True, next_page='main'), name='login'),
     path('signup/', views.signup, name='signup'),
-    path('register/', views.register, name='register'),
+    # path('register/', views.register, name='register'), 기존 사용자등록 페이지
+    path('main/', views.main, name='main'),
+    path('org_register/', views.org_register, name='org_register'),
+    path('member_register/' , views.member_register, name='member_register'),
     path('report/', views.report, name='report'),
     path('report/protected/', views.report_detail_protected, name='report_detail_protected'),
     path('report/<int:id>/', views.report_detail, name='report_detail'),
@@ -48,6 +51,8 @@ urlpatterns = [
     path('password-reset-done/', views.password_reset_done, name='password_reset_done'),
 
     # for JWT token
+    # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
 
@@ -80,7 +85,7 @@ urlpatterns = [
     path('api/mobile/code/get_code/',           views_mobile.get_code,           name='mobile-code-get_code'),           # 코드 정보 가져오기
     path('api/mobile/gait/get_gait_result/',    views_mobile.get_gait_result,    name='mobile-gait-get_gait_result'),    # 보행 결과 가져오기
     path('api/mobile/body/get_body_result/<int:id>/',
-                                                views_mobile.get_body_result_id,       name='mobile-body-get_body_result'),    # 체형 결과 가져오기
+                                                views_mobile.get_body_result_id, name='mobile-body-get_body_result'),    # 체형 결과 가져오기
     path('api/mobile/body/get_body_result/',    views_mobile.get_body_result,    name='mobile-body-get_body_result'),    # 체형 결과 가져오기
     path('api/mobile/gait/delete_gait_result/', views_mobile.delete_gait_result, name='mobile-body-delete_gait_result'), # 보행 결과 삭제
     path('api/mobile/body/delete_body_result/', views_mobile.delete_body_result, name='mobile-body-delete_body_result'), # 체형 결과 삭제
