@@ -16,7 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import datetime, timedelta
 from .helpers import extract_digits, generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image, \
-    calculate_normal_ratio
+    calculate_normal_ratio, create_excel_report
 from .models import BodyResult, CodeInfo, GaitResult, OrganizationInfo, SchoolInfo, UserInfo, SessionInfo, UserHist
 from .forms import UploadFileForm, CustomPasswordChangeForm, CustomUserCreationForm, CustomPasswordResetForm
 from .serializers import BodyResultSerializer, GaitResponseSerializer, GaitResultSerializer
@@ -28,12 +28,9 @@ from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from datetime import datetime as dt
-from django.utils import timezone
-from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 from django.http import JsonResponse, HttpResponse
 from urllib.parse import quote
-import multiprocessing
 
 # 응답코드 관련
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, \
@@ -196,15 +193,21 @@ def main(request):  # 추후 캐싱 기법 적용
 def org_register(request):
     return render(request, 'org_register.html')
 
-
+@login_required
 def member_register(request):
-    user = request.user
+    existing_member = 0 # 기존 회원 카운팅
+    new_member = 0      # 신규 회원 카운팅
+
+    user_id = request.user.id
+
+    user = UserInfo.objects.get(id=user_id)
+
     type = user.user_type
 
-    if type not in ['S', 'O']:
+    if type not in ['S', 'O']: # 'G' == 게스트(일반 사용자)
         return render(request, 'main.html', context={"message": "먼저 기관을 등록해주세요."})  # 'home' URL로 리디렉션
 
-    orgName = user.organization.organization_name if user.organization else user.school.school_name
+    orgName = user.organization.organization_name if user.organization else user.school.school_name # 기관명(학교명) 가져오기
 
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
@@ -242,25 +245,28 @@ def member_register(request):
                     with transaction.atomic():  # 트랜잭션 시작
                         for user_data in users:
                             phone_number = extract_digits(str(user_data['전화번호']).replace('-', ''))
-                            if phone_number.startswith('10'):
+                            if phone_number.startswith('10'): # 10 으로 시작하는 경우 0 추가(int로 입력이 들어오면 맨 앞에 0이 빠지기 때문)
                                 phone_number = '0' + phone_number
 
-                            if type == 'S':
+                            if type == 'S': # 학생인 경우
                                 school_info = SchoolInfo.objects.get(school_name=user.school.school_name)
 
                                 # 기존 사용자 확인 및 이력 저장
                                 existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
-                                if existing_user:
-                                    UserHist.objects.create(
-                                        user=existing_user,
-                                        school=existing_user.school,
-                                        student_grade=existing_user.student_grade,
-                                        student_class=existing_user.student_class,
-                                        student_number=existing_user.student_number,
-                                        student_name=existing_user.student_name,
-                                        year=existing_user.year
-                                    )
+                                if existing_user: # 기존 사용자가 있는 경우
+                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year : # 작년도 사용자인 경우
+                                        UserHist.objects.create(
+                                            user=existing_user,
+                                            school=existing_user.school,
+                                            student_grade=existing_user.student_grade,
+                                            student_class=existing_user.student_class,
+                                            student_number=existing_user.student_number,
+                                            student_name=existing_user.student_name,
+                                            year=existing_user.year
+                                        )
+                                    existing_member += 1
 
+                                new_member += 1
                                 # 사용자 정보 업데이트 또는 생성
                                 UserInfo.objects.update_or_create(
                                     phone_number=phone_number,
@@ -279,22 +285,25 @@ def member_register(request):
                                         'year': dt.now().year
                                     }
                                 )
-                            else:
+                            else: # user_type == 'O' (기관인 경우)
                                 organization_info = OrganizationInfo.objects.get(
-                                    organization_name=user.organization.organization_name)
+                                    organization_name=user.organization.organization_name) # 기관 정보 가져오기
 
                                 # 기존 사용자 확인 및 이력 저장
                                 existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
-                                if existing_user:
-                                    UserHist.objects.create(
-                                        user=existing_user,
-                                        organization=existing_user.organization,
-                                        department=existing_user.department,
-                                        student_name=existing_user.student_name,  # 기관회원의 이름도 student_name에 저장
-                                        year=existing_user.year
-                                    )
+                                if existing_user: # 기존 유저
+                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year: # 작년도 사용자인 경우
+                                        UserHist.objects.create(
+                                            user=existing_user,
+                                            organization=existing_user.organization,
+                                            department=existing_user.department,
+                                            student_name=existing_user.student_name,  # 기관회원의 이름도 student_name에 저장
+                                            year=existing_user.year
+                                        )
+                                    existing_member += 1
 
-                                UserInfo.objects.update_or_create(
+                                new_member += 1
+                                UserInfo.objects.update_or_create( # 기존 사용자가 없는 경우 -> 신규 생성
                                     phone_number=phone_number,
                                     defaults={
                                         'organization': organization_info,
@@ -309,10 +318,11 @@ def member_register(request):
                                     }
                                 )
 
-                        return JsonResponse({'message': '성공적으로 저장되었습니다.'})
+
+                        new_member = new_member - existing_member
+                        return JsonResponse({'message': '성공적으로 저장되었습니다.', 'existing_member': existing_member, 'new_member': new_member})
 
                 # 미리보기 요청인 경우
-                print(users)
                 return JsonResponse({
                     'users': users,
                     'columns': expected_columns
@@ -326,7 +336,7 @@ def member_register(request):
     return render(request, 'member_register.html', {
         'form': form,
         'orgName': orgName,
-        'user_type': type
+        'user_type': type,
     })
 
 
@@ -828,41 +838,42 @@ def report_download(request):
     selected_year = request.GET.get('year', None)
 
     user = UserInfo.objects.get(id=user_request.id)
+    user_type = user.user_type
 
-    if not selected_group or not selected_year or not user.is_authenticated:
+    if not selected_group or not selected_year or not user.is_authenticated or user is None:
         return redirect('report')
 
     # 사용자 목록 조회
-    if user.user_type == 'S':
+    if user_type == 'S': # 학교 사용자
         match = re.search(r"(\d+)학년 (\d+)반", selected_group)
-        if selected_year == str(dt.now().year) and match:
+        if selected_year == str(dt.now().year) and match: # 현재 년도 조회
             users = UserInfo.objects.filter(
                 school__school_name=user.school.school_name,
                 student_grade=match.group(1),
                 student_class=match.group(2)
             ).order_by('student_number')
-        else:
+        else:                                             # 이전 년도 조회
             users = UserHist.objects.filter(
                 school__id=user.school.id,
                 student_grade=match.group(1),
                 student_class=match.group(2),
                 year=selected_year
             ).order_by('student_number')
-    elif user.user_type == 'O':
+    elif user_type == 'O':  # 기관 사용자
         users = UserInfo.objects.filter(
             organization__organization_name=user.organization.organization_name,
             department=selected_group
         ).order_by('student_name')
 
     # 한 번에 모든 사용자의 ID 리스트 생성
-    if user.user_type == 'S':  # 학교 사용자의 경우 (이전 년도가 포함될 수 있음 (UserHist))
+    if user_type == 'S':  # 학교 사용자의 경우 (이전 년도가 포함될 수 있음 (UserHist))
         user_ids = [user.id if (selected_year == str(dt.now().year)) else user.user_id for user in users]
     else:  # 기관 사용자의 경우
         user_ids = [user.id for user in users]
         selected_year = str(dt.now().year)  # 기관 사용자의 경우 현재 년도만 조회 가능
 
     # 한 번의 쿼리로 모든 BodyResult 데이터 조회
-    body_results = BodyResult.objects.filter(
+    body_results = BodyResult.objects.filter(  # user_id로 필터링 (선택된 년도에 생성된 bodyResult)
         user_id__in=user_ids,
         created_dt__year=selected_year,
         image_front_url__isnull=False,
@@ -888,7 +899,7 @@ def report_download(request):
         user_id = user.id if (selected_year == str(dt.now().year)) else user.user_id
         body_result = body_results_dict.get(user_id)
 
-        if user.user_type == 'S':
+        if user_type == 'S':
             row_data = {
                 '학년': user.student_grade,
                 '반': user.student_class,
@@ -922,14 +933,17 @@ def report_download(request):
     df = pd.DataFrame(excel_data)
 
     # 컬럼 순서 설정
-    if user.user_type == 'S':
+    if user_type == 'S':
         columns = ['학년', '반', '번호', '이름', '검사일', '검사결과', '정상범위'] + code_names
     else:
         columns = ['부서명', '이름', '검사일', '검사결과', '정상범위'] + code_names
     df = df[columns]
 
-    # 엑셀 파일 생성 및 반환
-    if user.user_type == 'S':
+    # 엑셀 커스텀마이징(열 폭, 색상)
+    workbook = create_excel_report(df, user.user_type, code_names)
+
+    # 파일명 생성 및 응답 반환
+    if user_type == 'S':
         file_name = f"{selected_year}_{user.school.school_name}_{selected_group}.xlsx"
     else:
         file_name = f"{selected_year}_{user.organization.organization_name}_{selected_group}.xlsx"
@@ -937,7 +951,7 @@ def report_download(request):
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_file_name}"
-    df.to_excel(response, index=False)
+    workbook.save(response)
 
     return response
 
