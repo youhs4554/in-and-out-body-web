@@ -719,7 +719,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.error) {
                 throw new Error(data.error);
             }
-            showSuccess('성공적으로 저장되었습니다.');
+            const new_member = data.new_member;
+            const existing_member = data.existing_member;
+            showSuccess("기존 회원: " + existing_member + "명, 신규 회원: " + new_member + "명의 구성원이 추가되었습니다.");
             resetInterface();
         })
         .catch(error => {

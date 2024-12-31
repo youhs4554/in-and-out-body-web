@@ -1136,18 +1136,18 @@ def mobile_body_sync(request):
         return Response({'data': {'message': str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def mobile_gait_sync(request):  # 아직 사용 X
+# @api_view(['GET'])
+# @permission_classes([permissions.IsAuthenticated])
+# def mobile_gait_sync(request):  # 아직 사용 X
 
-    # 사용자 Id
-    user_id = request.user.id
-    try:
-        user_gait_id_list = GaitResult.objects.filter(user_id=user_id, mobile_yn='y').values_list('id', flat=True)
+#     # 사용자 Id
+#     user_id = request.user.id
+#     try:
+#         user_gait_id_list = GaitResult.objects.filter(user_id=user_id).values_list('id', flat=True)
 
-        return Response(
-            {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'items': len(user_gait_id_list)}},
-            status=status.HTTP_200_OK)
+#         return Response(
+#             {'data': {'message': 'success', 'gait_results': user_gait_id_list, 'items': len(user_gait_id_list)}},
+#             status=status.HTTP_200_OK)
 
-    except UserInfo.DoesNotExist:
-        return Response({'data': {'message': 'user_not_found'}}, status=status.HTTP_401_UNAUTHORIZED)
+#     except UserInfo.DoesNotExist:
+#         return Response({'data': {'message': 'user_not_found'}}, status=status.HTTP_401_UNAUTHORIZED)
