@@ -88,7 +88,8 @@ def main(request):  # 추후 캐싱 기법 적용
             # 미완료 검사 수
             # 소속된 학교의 모든 사용자 중 검사를 받지 않은 사용자 수
             pending_tests = UserInfo.objects.filter(
-                school__id=user.school.id
+                school__id=user.school.id,
+                year=dt.now().year
             ).exclude(
                 id__in=BodyResult.objects.filter(
                     user__school__id=user.school.id,
@@ -100,7 +101,8 @@ def main(request):  # 추후 캐싱 기법 적용
 
             # 학교의 그룹 정보 가져오기
             groups = UserInfo.objects.filter(
-                school__school_name=user.school.school_name
+                school__school_name=user.school.school_name,
+                year=dt.now().year
             ).values('student_grade', 'student_class').annotate(student_count=Count('id')).order_by('student_grade',
                                                                                                     'student_class')
 
@@ -124,6 +126,7 @@ def main(request):  # 추후 캐싱 기법 적용
                     # 구성원 수 증가
                     group_structure[grade][class_num] = group['student_count']  # 쿼리에서 가져온 학생 수로 설정
 
+            print(group_structure)
 
         else:
             # 유저 소속 - 기관
@@ -193,10 +196,11 @@ def main(request):  # 추후 캐싱 기법 적용
 def org_register(request):
     return render(request, 'org_register.html')
 
+
 @login_required
 def member_register(request):
-    existing_member = 0 # 기존 회원 카운팅
-    new_member = 0      # 신규 회원 카운팅
+    existing_member = 0  # 기존 회원 카운팅
+    new_member = 0  # 신규 회원 카운팅
 
     user_id = request.user.id
 
@@ -204,17 +208,18 @@ def member_register(request):
 
     type = user.user_type
 
-    if type not in ['S', 'O']: # 'G' == 게스트(일반 사용자)
+    if type not in ['S', 'O']:  # 'G' == 게스트(일반 사용자)
         return render(request, 'main.html', context={"message": "먼저 기관을 등록해주세요."})  # 'home' URL로 리디렉션
 
-    orgName = user.organization.organization_name if user.organization else user.school.school_name # 기관명(학교명) 가져오기
+    orgName = user.organization.organization_name if user.organization else user.school.school_name  # 기관명(학교명) 가져오기
 
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 excel_file = request.FILES['file']
-                df = pd.read_excel(excel_file, dtype={'전화번호': str})  # 전화번호를 문자열로 읽음( 01000010001, 010-0001-0001) 다중 처리 위해서
+                df = pd.read_excel(excel_file,
+                                   dtype={'전화번호': str})  # 전화번호를 문자열로 읽음( 01000010001, 010-0001-0001) 다중 처리 위해서
 
                 # 컬럼 검증
                 expected_columns = ['학년', '반', '번호', '이름', '전화번호'] if type == 'S' else ['부서명', '이름', '전화번호']
@@ -245,17 +250,17 @@ def member_register(request):
                     with transaction.atomic():  # 트랜잭션 시작
                         for user_data in users:
                             phone_number = extract_digits(str(user_data['전화번호']).replace('-', ''))
-                            if phone_number.startswith('10'): # 10 으로 시작하는 경우 0 추가(int로 입력이 들어오면 맨 앞에 0이 빠지기 때문)
+                            if phone_number.startswith('10'):  # 10 으로 시작하는 경우 0 추가(int로 입력이 들어오면 맨 앞에 0이 빠지기 때문)
                                 phone_number = '0' + phone_number
 
-                            if type == 'S': # 학생인 경우
+                            if type == 'S':  # 학생인 경우
                                 school_info = SchoolInfo.objects.get(school_name=user.school.school_name)
 
                                 # 기존 사용자 확인 및 이력 저장
                                 existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
-                                if existing_user: # 기존 사용자가 있는 경우
-                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year : # 작년도 사용자인 경우
-                                        UserHist.objects.create(
+                                if existing_user:  # 기존 사용자가 있는 경우
+                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year:  # 작년도 사용자인 경우
+                                        UserHist.objects.update_or_create(
                                             user=existing_user,
                                             school=existing_user.school,
                                             student_grade=existing_user.student_grade,
@@ -285,15 +290,15 @@ def member_register(request):
                                         'year': dt.now().year
                                     }
                                 )
-                            else: # user_type == 'O' (기관인 경우)
+                            else:  # user_type == 'O' (기관인 경우)
                                 organization_info = OrganizationInfo.objects.get(
-                                    organization_name=user.organization.organization_name) # 기관 정보 가져오기
+                                    organization_name=user.organization.organization_name)  # 기관 정보 가져오기
 
                                 # 기존 사용자 확인 및 이력 저장
                                 existing_user = UserInfo.objects.filter(phone_number=phone_number).first()
-                                if existing_user: # 기존 유저
-                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year: # 작년도 사용자인 경우
-                                        UserHist.objects.create(
+                                if existing_user:  # 기존 유저
+                                    if existing_user.created_dt.year != dt.now().year or existing_user.year != dt.now().year:  # 작년도 사용자인 경우
+                                        UserHist.objects.update_or_create(
                                             user=existing_user,
                                             organization=existing_user.organization,
                                             department=existing_user.department,
@@ -303,7 +308,7 @@ def member_register(request):
                                     existing_member += 1
 
                                 new_member += 1
-                                UserInfo.objects.update_or_create( # 기존 사용자가 없는 경우 -> 신규 생성
+                                UserInfo.objects.update_or_create(  # 기존 사용자가 없는 경우 -> 신규 생성 및 갱신
                                     phone_number=phone_number,
                                     defaults={
                                         'organization': organization_info,
@@ -318,9 +323,9 @@ def member_register(request):
                                     }
                                 )
 
-
                         new_member = new_member - existing_member
-                        return JsonResponse({'message': '성공적으로 저장되었습니다.', 'existing_member': existing_member, 'new_member': new_member})
+                        return JsonResponse(
+                            {'message': '성공적으로 저장되었습니다.', 'existing_member': existing_member, 'new_member': new_member})
 
                 # 미리보기 요청인 경우
                 return JsonResponse({
@@ -649,17 +654,16 @@ def report(request):
     # GET 요청 처리 (리다이렉트 후 처리)
     if user.user_type == 'S':
         # 학교별 학년/반 정보 가져오기 -> select 태그에 들어가는 값
-        groups = UserInfo.objects.filter(school__school_name=user.school.school_name).values_list('student_grade',
-                                                                                                  'student_class',
-                                                                                                  named=True).distinct().order_by(
-            'student_grade', 'student_class')
-        groups = [f'{g.student_grade}학년 {g.student_class}반' for g in groups if
-                  ((g.student_grade is not None) & (g.student_class is not None))]
+        groups = UserInfo.objects.filter(
+            school__school_name=user.school.school_name,
+        ).values_list(
+            'student_grade', 'student_class', 'year', named=True
+        ).distinct().order_by('year', 'student_grade', 'student_class')
 
         # 연도별 그룹 정보 생성
         user_hists = UserHist.objects.filter(school__id=user.school.id)
         for hist in user_hists:
-            year = str(hist.year)  # 객체 속성으로 접근
+            year = str(hist.year)  # UserHist의 연도 정보
             year_group = f"{hist.student_grade}학년 {hist.student_class}반"
 
             # 해당 연도가 year_group_map에 없으면 초기화
@@ -670,32 +674,37 @@ def report(request):
             if year_group not in year_group_map[year]:
                 year_group_map[year].append(year_group)
 
-        # 현재 연도의 그룹 정보 추가 (중복 방지)
-        current_year = str(dt.now().year)
-        if current_year not in year_group_map:
-            year_group_map[current_year] = []
-
+        # UserInfo의 연도 데이터 추가
         for group in groups:
-            if group not in year_group_map[current_year]:
-                year_group_map[current_year].append(group)
+            year = str(group.year)  # UserInfo의 연도 정보
+            year_group = f"{group.student_grade}학년 {group.student_class}반"
+
+            if year not in year_group_map:
+                year_group_map[year] = []
+
+            if year_group not in year_group_map[year]:
+                year_group_map[year].append(year_group)
+
+        """ 현재 연도의 데이터가 실제로 존재하는지 확인하는 과정 """
+        current_year = str(dt.now().year)
+
+        existing_years_in_db = set(UserHist.objects.values_list('year', flat=True))
+
+        # 현재 연도가 DB에 있는 연도에 포함될 경우만 처리
+        if current_year in existing_years_in_db:
+            # year_group_map에 현재 연도가 없으면 초기화
+            if current_year not in year_group_map:
+                year_group_map[current_year] = []
+
+            for group in groups:
+                current_group = f"{group.student_grade}학년 {group.student_class}반"
+                # 현재 연도에 해당 반 정보가 없으면 추가
+                if current_group not in year_group_map[current_year]:
+                    year_group_map[current_year].append(current_group)
 
         # 학교별 년도 정보 가져오기 -> select 태그에 들어가는 값
         # school_id에 해당하는 BodyResult 데이터에서 created_dt의 최소/최대 연도를 가져오기
-        result = BodyResult.objects.filter(school__id=user.school.id).annotate(
-            year=ExtractYear('created_dt')
-        ).aggregate(
-            min_year=Min('year'),
-            max_year=Max('year'),
-        )
-
-        min_year = result['min_year']
-        max_year = result['max_year']
-
-        # min_year와 max_year 사이의 연도를 리스트로 만들어서 years에 저장
-        if min_year is not None and max_year is not None:
-            years = [str(year) for year in range(max_year, min_year - 1, -1)]
-        else:
-            years = [dt.now().year]
+        years = list(year_group_map.keys())
 
         if selected_year and selected_group:
             if selected_year != str(dt.now().year) and selected_year not in year_group_map:
@@ -703,19 +712,23 @@ def report(request):
 
             # 정규 표현식으로 학년과 반 추출
             match = re.search(r"(\d+)학년 (\d+)반", selected_group)
+
+            # 당년도
             if selected_year == str(dt.now().year) and match:
                 user_results.clear()  # 기존 결과 초기화
 
                 body_result_subquery = BodyResult.objects.filter(
                     user_id=OuterRef('id'),
                     image_front_url__isnull=False,
-                    image_side_url__isnull=False
+                    image_side_url__isnull=False,
+                    created_dt__year=selected_year
                 )
 
                 users = UserInfo.objects.filter(
                     school__school_name=user.school.school_name,
                     student_grade=match.group(1),
-                    student_class=match.group(2)
+                    student_class=match.group(2),
+                    year=selected_year
                 ).annotate(
                     analysis_valid=Exists(body_result_subquery)
                 ).order_by('student_number')
@@ -725,27 +738,43 @@ def report(request):
                     'analysis_valid': user.analysis_valid
                 } for user in users]
 
-                """ 만약 다른 연도의 데이터 조회를 할 때 """
             elif selected_year != str(dt.now().year) and match:
                 user_results.clear()  # 기존 결과 초기화
 
-                user_hists = UserHist.objects.filter(school__id=user.school.id,
-                                                     student_grade=match.group(1),
-                                                     student_class=match.group(2),
-                                                     year=selected_year).order_by('student_number')
+                # UserHist에서 데이터 조회
+                user_hists = UserHist.objects.filter(
+                    school__id=user.school.id,
+                    student_grade=match.group(1),
+                    student_class=match.group(2),
+                    year=selected_year
+                ).order_by('student_number')
+
+                # UserInfo에서 데이터 조회
+                user_infos = UserInfo.objects.filter(
+                    school__id=user.school.id,
+                    student_grade=match.group(1),
+                    student_class=match.group(2),
+                    year=selected_year
+                ).order_by('student_number')
+
+                # UserHist에서 조회된 user_id 목록
+                hist_user_ids = set(user_hists.values_list('user_id', flat=True))
+
+                # UserInfo에서 UserHist에 없는 데이터만 필터링
+                unique_user_infos = user_infos.exclude(id__in=hist_user_ids)
+
+                # UserHist 데이터 처리
                 for user_hist in user_hists:
                     body_result_queryset = BodyResult.objects.filter(
                         user_id=user_hist.user.id,
-                        created_dt__year=selected_year,  # 선택된 연도에 해당하는 데이터만 가져옴
-                        image_front_url__isnull=False,  # 만약 전면, 사이드 이미지가 없는 경우는 쿼리 결과에서 제외됨
+                        created_dt__year=selected_year,
+                        image_front_url__isnull=False,
                         image_side_url__isnull=False,
                     )
+                    analysis_valid = len(body_result_queryset) > 0
 
-                    analysis_valid = (len(body_result_queryset) > 0)
-
-                    # user와 검사 결과 여부를 딕셔너리 형태로 추가
                     user_results.append({
-                        'user': {  # 이전의 연도 데이터를 사용
+                        'user': {
                             'id': user_hist.user.id,
                             'student_grade': user_hist.student_grade,
                             'student_class': user_hist.student_class,
@@ -756,6 +785,30 @@ def report(request):
                         'created_dt': body_result_queryset[0].created_dt.strftime(
                             '%Y-%m-%d %H:%M:%S') if analysis_valid else None
                     })
+
+                # UserInfo 데이터 처리 (UserHist에 없는 데이터만)
+                for user_info in unique_user_infos:
+                    body_result_queryset = BodyResult.objects.filter(
+                        user_id=user_info.id,
+                        created_dt__year=selected_year,
+                        image_front_url__isnull=False,
+                        image_side_url__isnull=False,
+                    )
+                    analysis_valid = len(body_result_queryset) > 0
+
+                    user_results.append({
+                        'user': {
+                            'id': user_info.id,
+                            'student_grade': user_info.student_grade,
+                            'student_class': user_info.student_class,
+                            'student_number': user_info.student_number,
+                            'student_name': user_info.student_name
+                        },
+                        'analysis_valid': analysis_valid,
+                        'created_dt': body_result_queryset[0].created_dt.strftime(
+                            '%Y-%m-%d %H:%M:%S') if analysis_valid else None
+                    })
+
 
     elif user.user_type == 'O':
         groups = UserInfo.objects.filter(
@@ -844,21 +897,41 @@ def report_download(request):
         return redirect('report')
 
     # 사용자 목록 조회
-    if user_type == 'S': # 학교 사용자
+    if user_type == 'S':  # 학교 사용자
         match = re.search(r"(\d+)학년 (\d+)반", selected_group)
-        if selected_year == str(dt.now().year) and match: # 현재 년도 조회
+        if selected_year == str(dt.now().year) and match:  # 현재 년도 조회
             users = UserInfo.objects.filter(
                 school__school_name=user.school.school_name,
                 student_grade=match.group(1),
-                student_class=match.group(2)
+                student_class=match.group(2),
+                year=selected_year
             ).order_by('student_number')
-        else:                                             # 이전 년도 조회
-            users = UserHist.objects.filter(
+        else:  # 이전 년도 조회
+            # UserHist에서 데이터 조회
+            user_hists = UserHist.objects.filter(
                 school__id=user.school.id,
                 student_grade=match.group(1),
                 student_class=match.group(2),
                 year=selected_year
             ).order_by('student_number')
+
+            # UserInfo에서 데이터 조회
+            user_infos = UserInfo.objects.filter(
+                school__id=user.school.id,
+                student_grade=match.group(1),
+                student_class=match.group(2),
+                year=selected_year
+            ).order_by('student_number')
+
+            # UserHist에서 조회된 user_id 목록
+            hist_user_ids = set(user_hists.values_list('user_id', flat=True))
+
+            # UserInfo에서 UserHist에 없는 데이터만 필터링
+            unique_user_infos = user_infos.exclude(id__in=hist_user_ids)
+
+            # 최종 사용자 목록 생성
+            users = list(user_hists) + list(unique_user_infos)
+
     elif user_type == 'O':  # 기관 사용자
         users = UserInfo.objects.filter(
             organization__organization_name=user.organization.organization_name,
@@ -867,18 +940,26 @@ def report_download(request):
 
     # 한 번에 모든 사용자의 ID 리스트 생성
     if user_type == 'S':  # 학교 사용자의 경우 (이전 년도가 포함될 수 있음 (UserHist))
-        user_ids = [user.id if (selected_year == str(dt.now().year)) else user.user_id for user in users]
+        user_ids = [user.user_id for user in user_hists] + [user.id for user in
+                                                            unique_user_infos] if selected_year != str(
+            dt.now().year) else [user.id for user in users]
     else:  # 기관 사용자의 경우
         user_ids = [user.id for user in users]
-        selected_year = str(dt.now().year)  # 기관 사용자의 경우 현재 년도만 조회 가능
 
-    # 한 번의 쿼리로 모든 BodyResult 데이터 조회
-    body_results = BodyResult.objects.filter(  # user_id로 필터링 (선택된 년도에 생성된 bodyResult)
-        user_id__in=user_ids,
-        created_dt__year=selected_year,
-        image_front_url__isnull=False,
-        image_side_url__isnull=False,
-    ).select_related('user')
+    if user_type == 'S':
+        # 한 번의 쿼리로 모든 BodyResult 데이터 조회
+        body_results = BodyResult.objects.filter(  # user_id로 필터링 (선택된 년도에 생성된 bodyResult)
+            user_id__in=user_ids,
+            created_dt__year=selected_year,
+            image_front_url__isnull=False,
+            image_side_url__isnull=False,
+        ).select_related('user')
+    else:  # 기관은 모든 년도의 데이터를 사용
+        body_results = BodyResult.objects.filter(  # user_id로 필터링 (선택된 년도에 생성된 bodyResult)
+            user_id__in=user_ids,
+            image_front_url__isnull=False,
+            image_side_url__isnull=False,
+        ).select_related('user')
 
     # {user_id : <BodyResult:QuerySet> }
     body_results_dict = {}
@@ -896,7 +977,12 @@ def report_download(request):
     # 엑셀 데이터 생성
     excel_data = []
     for user in users:
-        user_id = user.id if (selected_year == str(dt.now().year)) else user.user_id
+        # UserHist에서 가져온 경우 user_id를 user.user_id로 설정
+        if hasattr(user, 'user_id'):
+            user_id = user.user_id
+        else:  # UserInfo에서 가져온 경우
+            user_id = user.id
+
         body_result = body_results_dict.get(user_id)
 
         if user_type == 'S':
@@ -940,7 +1026,7 @@ def report_download(request):
     df = df[columns]
 
     # 엑셀 커스텀마이징(열 폭, 색상)
-    workbook = create_excel_report(df, user.user_type, code_names)
+    workbook = create_excel_report(df, user_type, code_names)
 
     # 파일명 생성 및 응답 반환
     if user_type == 'S':

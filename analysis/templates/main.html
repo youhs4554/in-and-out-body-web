@@ -94,6 +94,13 @@
 
                 <div class="groups-container">
                     {% if user_type == 'S' %}
+                        {% if group_structure|length == 0 %}
+                            <div>
+                            <h3>현재 년도에 등록된 학년/반이 없습니다.</h3>
+                            <a href="{% url 'report' %}"><button class="view-button" > <i class="fas fa-search"></i>
+                                <span>자세히 보기</span></button></a>
+                            </div>
+                            {% else %}
                         {% for grade, classes in group_structure.items %}
                             <div class="grade-card">
                                 <h4><i class="fas fa-users-class"></i> {{ grade }}학년</h4>
@@ -119,28 +126,33 @@
 
                             </div>
                         {% endfor %}
+                            {% endif %}
                         {% elif user_type == 'O' %}
-                            {% for dept, value in group_structure.items %}
-                            <div class="grade-card dept-card">
-                                <div class="dept-info-card">
-                                    <div class="dept-header">
-                                        <i class="fas fa-building"></i>
-                                        <div class="dept-details">
-                                            <span class="dept-name">{{ dept }}</span>
-                                            <span class="employee-count">{{ value }}명</span>
+                            {% if group_structure|length == 0 %}                       
+                                <h3>등록된 부서가 없습니다.</h3>
+                            {% else %}
+                                {% for dept, value in group_structure.items %}
+                                <div class="grade-card dept-card">
+                                    <div class="dept-info-card">
+                                        <div class="dept-header">
+                                            <i class="fas fa-building"></i>
+                                            <div class="dept-details">
+                                                <span class="dept-name">{{ dept }}</span>
+                                                <span class="employee-count">{{ value }}명</span>
+                                            </div>
                                         </div>
+                                        <form action="{% url 'report' %}" method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="group" value="{{ dept }}">
+                                            <button type="submit" class="view-dept-button">
+                                                <i class="fas fa-search"></i>
+                                                <span>조회</span>
+                                            </button>
+                                        </form>
                                     </div>
-                                    <form action="{% url 'report' %}" method="post">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="group" value="{{ dept }}">
-                                        <button type="submit" class="view-dept-button">
-                                            <i class="fas fa-search"></i>
-                                            <span>조회</span>
-                                        </button>
-                                    </form>
                                 </div>
-                            </div>
-                            {% endfor %}
+                                {% endfor %}
+                            {% endif %}
                     {% endif %}
                 </div>
             </div>
