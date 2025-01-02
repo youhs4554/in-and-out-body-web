@@ -197,6 +197,10 @@
                 groupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
             
                 groups.forEach(group => {
+                    // 만약 group에 None 이라는 텍스트가 포함 있으면 제외
+                    if (group.includes('None')) {
+                        return;
+                    }
                     const option = document.createElement('option');
                     option.value = group;
                     option.textContent = group;
