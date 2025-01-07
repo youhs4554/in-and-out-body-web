@@ -126,8 +126,6 @@ def main(request):  # 추후 캐싱 기법 적용
                     # 구성원 수 증가
                     group_structure[grade][class_num] = group['student_count']  # 쿼리에서 가져온 학생 수로 설정
 
-            print(group_structure)
-
         else:
             # 유저 소속 - 기관
             user_affil = user.organization.organization_name
@@ -1713,6 +1711,8 @@ def create_body_result(request):
         data['student_grade'] = user_info.student_grade
         data['student_class'] = user_info.student_class
         data['student_number'] = user_info.student_number
+        data['image_front_url'] = 'Not_yet_queried'
+        data['image_side_url'] = 'Not yet queried'
 
     data['user'] = user_info.id
     serializer = BodyResultSerializer(data=data)
@@ -1945,6 +1945,8 @@ def login_kiosk_id(request):
         return Response(
             {'data': {'message': 'incorrect_password', 'status': 401}, 'message': 'incorrect_password', 'status': 401})
     else:
+        user_info.last_login = dt.now()  # 마지막 로그인 시간 업데이트
+        user_info.save()
         session_info.user_id = user_info.id
         session_info.save()
         return Response(

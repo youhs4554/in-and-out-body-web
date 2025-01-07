@@ -42,7 +42,12 @@
             </div>
             <hr style="color: #333;"/>
             <div class="stats-container">
+
                 <div class="stat-card">
+                    <div class="tooltip">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tooltip-text">해당 기관에 등록된 총 인원수</span>
+                    </div>
                     <div class="stat-icon">
                         <i class="fas fa-users"></i>
                     </div>
@@ -51,8 +56,13 @@
                         <p class="stat-number">{{ total_members }}명</p>
                     </div>
                 </div>
+                
 
                 <div class="stat-card">
+                    <div class="tooltip">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tooltip-text">지금까지 해당 기관의 완료된 모든 검사 결과의 총 건수입니다</span>
+                    </div>
                     <div class="stat-icon">
                         <i class="fas fa-chart-line"></i>
                     </div>
@@ -63,6 +73,10 @@
                 </div>
 
                 <div class="stat-card">
+                    <div class="tooltip">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tooltip-text">이번 달에 실시된 검사의 총 건수입니다</span>
+                    </div>
                     <div class="stat-icon">
                         <i class="fas fa-calendar-check"></i>
                     </div>
@@ -73,6 +87,10 @@
                 </div>
 
                 <div class="stat-card">
+                    <div class="tooltip">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tooltip-text">해당 연도에 등록된 회원 중 검사를 완료하지 않은 총 건수입니다</span>
+                    </div>
                     <div class="stat-icon">
                         <i class="fas fa-tasks"></i>
                     </div>
@@ -444,6 +462,63 @@
 .view-dept-button i {
     font-size: 0.9rem;
 }
+
+.stat-card {
+    position: relative;
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.tooltip {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.tooltip i {
+    color: #9d9d9d;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    top: -5px;
+    right: 125%;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    margin-top: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent transparent #333;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
 
 /* 반응형 디자인 */
 @media (max-width: 768px) {

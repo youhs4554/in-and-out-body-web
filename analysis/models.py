@@ -3,6 +3,8 @@ from email.policy import default
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django_prometheus.models import ExportModelOperationsMixin
+from analysis.custom import metrics
 
 
 class CodeInfo(models.Model):
@@ -52,7 +54,7 @@ class SessionInfo(models.Model):
     created_dt = models.DateTimeField(auto_now_add=True)
 
 
-class SchoolInfo(models.Model):
+class SchoolInfo(ExportModelOperationsMixin('school_info'), models.Model):
     school_name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=100, null=True)
@@ -62,7 +64,7 @@ class SchoolInfo(models.Model):
         return self.school_name
 
 
-class OrganizationInfo(models.Model):
+class OrganizationInfo(ExportModelOperationsMixin('organization_info'), models.Model):
     organization_name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=100, null=True)
@@ -72,7 +74,7 @@ class OrganizationInfo(models.Model):
         return self.organization_name
 
 
-class UserInfo(AbstractUser):
+class UserInfo(ExportModelOperationsMixin('user_info'), AbstractUser):
     user_type = models.CharField(max_length=1, null=False, blank=False)
     phone_number = models.CharField(max_length=100)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE, null=True, blank=True)  # Allow null values
@@ -116,7 +118,7 @@ class UserHist(models.Model):
     created_dt = models.DateTimeField(auto_now_add=True)
 
 
-class GaitResult(models.Model):
+class GaitResult(ExportModelOperationsMixin('gait_result'), models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
@@ -246,7 +248,7 @@ class GaitResult(models.Model):
         super().save(*args, **kwargs)
 
 
-class BodyResult(models.Model):
+class BodyResult(ExportModelOperationsMixin('body_result'), models.Model):
     user = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
     school = models.ForeignKey(SchoolInfo, on_delete=models.CASCADE)
     student_grade = models.IntegerField(null=True)
@@ -277,6 +279,14 @@ class BodyResult(models.Model):
             models.Index(fields=['user', 'created_dt'])
         ]
         ordering = ['-created_dt']
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        if is_new:
+            metrics.body_result_by_school.labels(
+                school_name=self.school.school_name
+            ).inc()
+        super().save(*args, **kwargs)
 
 
 ### 체형 분석 결과에서 keypoints 들을 저장할 테이블
