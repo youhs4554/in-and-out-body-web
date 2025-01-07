@@ -211,3 +211,6 @@ APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
 
 # 자동으로 스케쥴러 실행
 SCHEDULER_DEFAULT = True
+
+# Prometheus Exporter 설정
+PROMETHEUS_EXPORT_MIGRATIONS = False  # 기본 설정 유지

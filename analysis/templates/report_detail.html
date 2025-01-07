@@ -26,6 +26,294 @@
 
     gtag('config', 'G-2RNGQ9YFFS');
     </script>
+    <style>
+        /* 최상단 네비게이터 버튼 */
+        .scroll-to-top {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 40px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .scroll-to-top:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+        }
+
+        /* 모달 내용 */
+        .modal-content {
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        /* 모달 닫기 버튼 */
+        .modal .close {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            color: #fff;
+            font-size: 35px;
+            cursor: pointer;
+        }
+
+        /* 플로팅 이미지 DIV */
+        #floating-images {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: none;
+        }
+
+        /* 플로팅 이미지 2차 DIV */
+        .floating-images-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        /* 각 사진(정면, 측면) DIV */
+        .floating-image {
+            text-align: center;
+        }
+        
+        .floating-image p {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: rgba(0, 0, 0, 0.8);
+        }
+        
+        .floating-image img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .floating-image img:hover {
+            transform: scale(1.05);
+        }
+
+        /* 모바일 반응형 */
+        @media (max-width: 768px) {
+            body { 
+                padding: 0.5em!important;
+            }
+
+            /* 플로팅 이미지 관련 */
+            #floating-images {
+                position: fixed;
+                top: -100%;  /* 처음에는 화면 위로 숨김 */
+                left: 50%; /* 가운데 정렬 */
+                transform: translate(-50%, -150%); /* X, Y */
+                transition: transform 0.5s ease, opacity 0.5s ease;
+                background: rgba(255, 255, 255, 0.95);
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                border-top: none;
+            }
+        
+            #floating-images.show {
+                top: 0;
+                transform: translate(-50%, 0);
+                opacity: 1;
+                visibility: visible;
+            }
+        
+            .floating-images-container {
+                justify-content: center;
+            }
+        
+            .floating-image {
+                max-width: 120px;
+            }
+
+            /* 전체 콘텐츠 DIV */
+            .max-w-4xl {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            /* "체형 분석 결과", "체형 스캔" 데코레이션(그라데이션) 들어가있는 텍스트 */
+            .main-title {
+                font-size: 2rem;
+                line-height: 150%;
+                letter-spacing: 0.1em;
+            }
+            
+            /* main-title 밑의 텍스트 (스캔항목) */
+            .sub-title {
+                font-size: 1.5rem;
+                line-height: 150%;
+                letter-spacing: 0.1em;
+            }
+            
+            /* 각 아이템 DIV */
+            .report-card {
+                width: 100%;
+                padding: 15px;
+                margin: 10px 0;
+                flex-direction: column;
+            }
+            
+            /* 각 아이템 텍스트 전용 DIV */
+            .report-card .left-content {
+                max-width: 100%;
+                margin-bottom: 15px;
+            }
+            
+            .report-card .title {
+                font-size: 2rem;
+                line-height: 150%;
+            }
+            
+            .report-card .description-label {
+                font-size: 1.2rem;
+                line-height: 150%;
+            }
+            
+            .report-card .description-value {
+                font-size: 1.1rem;
+            }
+            
+            /* 정상 혹은 의심, 주의 표시 */
+            .report-card .result-value {
+                font-size: 1.6rem !important;
+            }
+            
+            /* svg */
+            .report-card img {
+                width: 120px;
+                height: 120px;
+                margin: 10px auto;
+            }
+            
+            .image-container {
+                flex-direction: row;
+                margin: 0;
+            }
+
+            .image-title {
+                font-size: 1.5rem;
+            }
+            
+            .image-block {
+                width: 100%;
+            }
+            
+            
+            .modal-content { 
+                height: auto;
+            }
+            
+            .summary-sub-title {
+                font-size: 1.3rem;
+            }
+            
+            .summary-evaluation-row {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 15px 0;
+            }
+            
+            .summary-title {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .summary-description {
+                width: 100%;
+                text-align: right;
+            }
+            
+            .date-score-container {
+                overflow-x: scroll;
+            }
+
+            /* 분석 결과 날짜 */
+            .date-item {
+                min-width: 150px;
+                padding: 8px;
+            }
+            
+            .date-text {
+                font-size: 0.8rem;
+            }
+            
+            /* 변화 추이 */
+            .mb-6 canvas {
+                height: 200px !important;
+                width:100%!important;
+            }
+            
+            .user-type h1 {
+                font-size: 1.2rem;
+                text-align: center;
+                padding: 0 10px;
+            }
+
+            
+            
+        }
+
+        @media (min-width: 769px) {
+            #floating-images {
+                right: -300px;
+                top: 50%;
+                width: 200px;
+                transform: translateY(-50%);
+            }
+            
+            #floating-images.show {
+                right: 20px;
+                opacity: 1;
+                visibility: visible;
+            }
+        
+            .floating-images-container {
+                flex-direction: column;
+            }
+        
+            .floating-image {
+                margin-bottom: 15px;
+            }
+        
+            .floating-image:last-child {
+                margin-bottom: 0;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-6" id="report-body">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
@@ -45,7 +333,7 @@
                 <h3 id="items_size" class="text-lg"></h3>
             </div>
             <div class="justify-center flex">
-            
+                
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
             <!-- 날짜 선택 및 점수 부분-->
@@ -86,6 +374,20 @@
             <div class="image-block">
                 <p class="image-title">측면 이미지</p>
                 <div class="image-wrapper">
+                    <img src="{{ image_side_url }}" alt="Side Image">
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Image Display -->
+        <div id="floating-images">
+            <div class="floating-images-container">
+                <div class="floating-image">
+                    <p>정면 이미지</p>
+                    <img src="{{ image_front_url }}" alt="Front Image">
+                </div>
+                <div class="floating-image">
+                    <p>측면 이미지</p>
                     <img src="{{ image_side_url }}" alt="Side Image">
                 </div>
             </div>
@@ -172,7 +474,7 @@
             <!-- Line Chart -->
             <div class="mb-6" id="trendChart-{{ item.alias }}">
                 <div class="sub-title">변화 추이 - {{ item.title }}</div>
-                <canvas id="chart_{{ item.alias }}" class="w-full h-64"></canvas>
+                <canvas id="chart_{{ item.alias }}" class="w-full h-64" id="chart_canvas"></canvas>
             </div>
 
             <!-- Section Contents (detailed explanation) -->
@@ -205,6 +507,8 @@
             <div class="divider"></div>
 
         {% endfor %}
+        <button class="scroll-to-top"><i class="bi bi-arrow-up-short"></i></button>
+
     </div>
 
     <script>
@@ -467,7 +771,97 @@
                 updateDateScoreDisplay();
                 scrollToSelectedDate();
             }
+
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const floatingImages = document.getElementById('floating-images');
+            const imageContainer = document.querySelector('.image-container');
+            
+            // 모달 설정 
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <span class="close">&times;</span>
+                <img class="modal-content" id="modalImg">
+            `;
+            document.body.appendChild(modal);
+            
+            // 이미지 클릭 이벤트
+            const images = document.querySelectorAll('.image-block img, #floating-images img');
+            const modalImg = document.getElementById('modalImg');
+            const closeBtn = modal.querySelector('.close');
+            
+            images.forEach(img => {
+                img.addEventListener('click', function() {
+                    modal.style.display = 'flex';
+                    modalImg.src = this.src;
+                });
+            });
+            
+            // 모달 창 닫기 
+            closeBtn.addEventListener('click', () => modal.style.display = 'none');
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            // 플로팅 이미지 표시/숨김 처리
+            function updateFloatingImagesVisibility() {
+                const rect = imageContainer.getBoundingClientRect();
+                const isMobile = window.innerWidth <= 768;
+                
+                if (rect.bottom < 0) {
+                    floatingImages.style.display = 'block';
+                    setTimeout(() => {
+                        floatingImages.classList.add('show');
+                    }, 500);
+                } else {
+                    floatingImages.classList.remove('show');
+                    setTimeout(() => {
+                        floatingImages.style.display = 'none';
+                    }, 100);
+                }
+            }
+            
+            // 스크롤 이벤트 리스너 등록
+            window.addEventListener('scroll', updateFloatingImagesVisibility);
+            window.addEventListener('resize', updateFloatingImagesVisibility);
+            
+            // init 
+            updateFloatingImagesVisibility();
+
+
+
+            // 스크롤 최상단 버튼 관련
+            const scrollButton = document.querySelector('.scroll-to-top');
+    
+            // 스크롤 버튼 표시/숨김 처리
+            function toggleScrollButton() {
+                if (window.scrollY > 200) {
+                    scrollButton.style.display = 'block';
+                } else {
+                    scrollButton.style.display = 'none';
+                }
+            }
+            
+            // 최상단으로 스크롤
+            scrollButton.addEventListener('click', function() {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+            
+            // 스크롤 이벤트 리스너
+            window.addEventListener('scroll', toggleScrollButton);
+            
+            // 초기 상태 체크
+            toggleScrollButton();
+        });
+        
+        
     </script>    
 </body>
 </html>
