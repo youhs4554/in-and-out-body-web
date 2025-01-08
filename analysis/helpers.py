@@ -324,3 +324,11 @@ def add_summary_sheet(workbook, df, code_names):
     # 열 너비 조정
     summary_sheet.column_dimensions['A'].width = 25
     summary_sheet.column_dimensions['B'].width = 15
+
+# 함수 실행 시간 측정 함수
+def measure_time(func):
+    import time
+    start_time = time.perf_counter()
+    func()
+    end_time = time.perf_counter()
+    print(f'실행 시간: {(end_time - start_time):.4f}초')

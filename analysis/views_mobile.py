@@ -10,8 +10,9 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from analysis.helpers import generate_presigned_url, parse_userinfo, upload_image_to_s3, verify_image
-from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo, SchoolInfo, Keypoint
+from analysis.custom.metrics import calculate_active_users
+from analysis.helpers import generate_presigned_url, measure_time, parse_userinfo, upload_image_to_s3, verify_image
+from analysis.models import GaitResult, AuthInfo, UserInfo, CodeInfo, BodyResult, SessionInfo, SchoolInfo
 from analysis.serializers import GaitResultSerializer, CodeInfoSerializer, BodyResultSerializer, KeypointSerializer
 
 import pytz
@@ -89,6 +90,8 @@ def login_mobile(request):
     else:
         authorized_user_info.user_type = 'G'
 
+    # authenticate 사용안함 -> last_login 직접 갱신
+    authorized_user_info.last_login = dt.now()
     authorized_user_info.save()
 
     token = TokenObtainPairSerializer.get_token(authorized_user_info)
@@ -1006,6 +1009,9 @@ def create_body_result(request) -> Response:
             body_data['student_class'] = user_info.student_number
             body_data['student_number'] = user_info.student_number
 
+        body_data['image_front_url'] = 'Not_yet_queried'  # 임시 데이터
+        body_data['image_side_url'] = 'Not_yet_queried'  # 추후 체형 분석 결과 쿼리 시 Image URL로 변경됨
+
         # BodyResult 생성
         serializer = BodyResultSerializer(data=body_data)
         if not serializer.is_valid():
@@ -1076,6 +1082,8 @@ def create_body_result(request) -> Response:
                 if not image_side: missing_images.append("image_side")
                 raise ValueError(f"Missing images: {', '.join(missing_images)}")
 
+        calculate_active_users()  # 활성 사용자 갱신
+
         return Response(  # 200(생성) 응답
             {'data': {'message': 'created_body_result', 'id': serializer.data['id']}},
             status=status.HTTP_200_OK
@@ -1134,7 +1142,6 @@ def mobile_body_sync(request):
 
     except Exception as e:
         return Response({'data': {'message': str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 # @api_view(['GET'])
 # @permission_classes([permissions.IsAuthenticated])
