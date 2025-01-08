@@ -91,6 +91,7 @@ class UserInfo(ExportModelOperationsMixin('user_info'), AbstractUser):
     height = models.FloatField(null=True, blank=True)
     year = models.IntegerField(null=True, blank=True)
     created_dt = models.DateTimeField(auto_now_add=True)
+    last_active_dt = models.DateTimeField(null=True, blank=True)  # 마지막 활동 시간
 
     class Meta:
         indexes = [
@@ -283,9 +284,14 @@ class BodyResult(ExportModelOperationsMixin('body_result'), models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         if is_new:
-            metrics.body_result_by_school.labels(
-                school_name=self.school.school_name
-            ).inc()
+            if self.user.user_type == 'S':
+                metrics.body_result_by_school.labels(
+                    school_name=self.school.school_name
+                ).inc()
+            elif self.user.user_type == 'O':
+                metrics.body_result_by_org.labels(
+                    organization_name=self.user.organization.organization_name
+                ).inc()
         super().save(*args, **kwargs)
 
 
