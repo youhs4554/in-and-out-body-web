@@ -18,20 +18,37 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill
 import pandas as pd
 import io as excel_io
+import botocore
+from boto3.s3.transfer import TransferConfig
 
 # 전역 변수 S3 클라이언트 생성
 s3_client = None
+
+# TransferConfig 설정
+transfer_config = TransferConfig(
+    max_concurrency=20,  # 최대 동시 연결 수
+    use_threads=True
+)
 
 
 # boto3 반환 함수
 def get_s3_client():
     global s3_client
     if s3_client is None:
+        # Config 객체를 client 생성 시 직접 전달
+        boto_config = botocore.config.Config(
+            max_pool_connections=20,  # urllib3 최대 연결 풀 설정
+            connect_timeout=5,
+            read_timeout=5,
+            retries={'max_attempts': 3}
+        )
+
         s3_client = boto3.client(
             's3',
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_S3_REGION_NAME
+            region_name=settings.AWS_S3_REGION_NAME,
+            config=boto_config  # 설정 적용
         )
     return s3_client
 
@@ -69,15 +86,20 @@ def upload_image_to_s3(image_data, file_keys):
     except Exception as e:  # 이미지 처리 중 실패
         raise ValueError("Image processing failed, please check the image file format.") from e
 
-    """시간이 많이 걸린다면, 비동기 처리를 고려해야 함"""
-
     # S3 버킷에 이미지 업로드
     try:
-        s3.put_object(
+        # s3.put_object(
+        #     Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+        #     Key=file_name,
+        #     Body=buffer,
+        #     ContentType='image/png'
+        # )
+        s3.upload_fileobj(
+            Fileobj=buffer,
             Bucket=settings.AWS_STORAGE_BUCKET_NAME,
             Key=file_name,
-            Body=buffer,
-            ContentType='image/png'
+            ExtraArgs={'ContentType': 'image/png'},  # ContentType 설정
+            Config=transfer_config
         )
     except Exception as e:  # AWS S3 이미지 업로드 실패
         raise Exception("Failed to upload image to S3") from e
@@ -324,6 +346,7 @@ def add_summary_sheet(workbook, df, code_names):
     # 열 너비 조정
     summary_sheet.column_dimensions['A'].width = 25
     summary_sheet.column_dimensions['B'].width = 15
+
 
 # 함수 실행 시간 측정 함수
 def measure_time(func):
