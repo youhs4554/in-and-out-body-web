@@ -92,7 +92,7 @@ urlpatterns = [
     path('api/mobile/body/create_body_result/', views_mobile.create_body_result, name='mobile-body-create_body_result'), # 체형 결과 생성
     path('api/mobile/body/sync_body_result/',   views_mobile.mobile_body_sync,   name='mobile-body-mobile_body_sync'),   # 체형 결과 동기화(bodyresults의 ID값만 반환함)
     # path('api/mobile/gait/sync_gait_result/',   views_mobile.mobile_gait_sync,   name='mobile-gait-mobile_gait_sync'),   # 보행 결과 동기화(gaitresults의 ID값만 반환함)
-
+    path('api/mobile/login-mobile-id/',         views_mobile.login_mobile_id,    name='mobile-auth-request_auth_id'),     # ID 로그인 요청 (ID를 사용하여 로그인)
 ]
 
 if settings.DEBUG:

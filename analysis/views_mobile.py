@@ -21,13 +21,15 @@ from concurrent.futures import ThreadPoolExecutor  # 병렬 처리
 from django.db.models import Subquery
 from datetime import datetime as dt
 from django.db import transaction  # DB 트랜잭션
+from django.contrib.auth.hashers import make_password, check_password
+from django.db.models import Q
 
 kst = pytz.timezone('Asia/Seoul')
 
 
 @swagger_auto_schema(
     method='post',
-    operation_summary="모버알 로그인(토큰 발급)",
+    operation_summary="모바일 로그인/회원가입(토큰 발급) - mobile_uid",
     operation_description="Authenticate mobile device using mobile_uid",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -109,6 +111,131 @@ def login_mobile(request):
     auth_info.delete()
 
     return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_summary="모바일 로그인 ID/PW 로그인(토큰 발급) - ID, PW",
+    operation_description="Authenticate mobile device using ID, PW",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'id': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='User ID(phone number)'
+            ),
+            'password': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='User password'
+            ),
+        },
+        required=['id', 'password'],
+    ),
+    responses={
+        200: openapi.Response(
+            description='Success',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'user_info': openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                description='User information'
+                            ),
+                            'jwt_tokens': openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'access_token': openapi.Schema(
+                                        type=openapi.TYPE_STRING,
+                                        description='Access token'
+                                    ),
+                                    'refresh_token': openapi.Schema(
+                                        type=openapi.TYPE_STRING,
+                                        description='Refresh token'
+                                    ),
+                                }
+                            ),
+                            'is_default_password': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                                                  description='True if the password is default')
+                        }
+                    ),
+                }
+            )
+        ),
+        400: openapi.Response(
+            description='Bad Request',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='id_password_required'
+                    )
+                }
+            )
+        ),
+        401: openapi.Response(
+            description='Unauthorized',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='user_not_found or incorrect_password'
+                    )
+                }
+            )
+        ),
+    }
+)
+@api_view(['POST'])
+def login_mobile_id(request):
+    id = request.data.get('id')
+    password = request.data.get('password')
+
+    if not id or not password:
+        return Response({'message': 'id_password_required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        req_user_info = UserInfo.objects.get(Q(phone_number=id))
+        if not check_password(password, req_user_info.password):
+            return Response(
+                {'message': 'user_not_found or incorrect_password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # 마지막 로그인 시간 갱신
+        req_user_info.last_login = dt.now()
+        req_user_info.save()
+
+        # 초기 비밀번호 상태 확인
+        init_passwd_status = check_password(os.environ['DEFAULT_PASSWORD'], req_user_info.password)
+
+        # JWT 토큰 생성
+        token = TokenObtainPairSerializer.get_token(req_user_info)
+        refresh_token = str(token)
+        access_token = str(token.access_token)
+
+        # 데이터 응답 준비
+        data_obj = {
+            'user_info': parse_userinfo(req_user_info),
+            'jwt_tokens': {
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+            },
+            'is_default_password': init_passwd_status,
+        }
+
+        return Response({'data': {k: v for k, v in data_obj.items() if v is not None}}, status=status.HTTP_200_OK)
+
+    except UserInfo.DoesNotExist:
+        # UserInfo를 찾을 수 없는 경우 처리
+        return Response(
+            {'message': 'user_not_found or incorrect_password'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
 
 @swagger_auto_schema(
@@ -1020,6 +1147,38 @@ def create_body_result(request) -> Response:
         with transaction.atomic():
             body_result = serializer.save()  # BodyResult 저장
 
+            # 이미지 처리
+            # created_dt = dt.now().strftime('%Y%m%dT%H%M%S%f')
+            # String -> datetime 변환 후 날짜포맷 설정
+            _db_created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f')
+
+            created_dt = _db_created_dt.strftime('%Y%m%dT%H%M%S%f')
+
+            image_front = request.data.get('image_front')
+            image_side = request.data.get('image_side')
+
+            if image_front and image_side:
+                try:
+                    verified_front = verify_image(image_front)
+                    verified_side = verify_image(image_side)
+
+                    # 병렬로 이미지 업로드
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        futures = [
+                            executor.submit(upload_image_to_s3, verified_front, ['front', created_dt]),
+                            executor.submit(upload_image_to_s3, verified_side, ['side', created_dt])
+                        ]
+                        for future in futures:
+                            future.result()  # 모든 업로드가 완료될 때까지 대기
+
+                except ValueError as ve:
+                    raise ValueError(f"Invalid image format: {str(ve)}")
+            else:  # 이미지 누락 처리
+                missing_images = []
+                if not image_front: missing_images.append("image_front")
+                if not image_side: missing_images.append("image_side")
+                raise ValueError(f"Missing images: {', '.join(missing_images)}")
+
             # Front Keypoints 저장
             front_keypoints = front_data.get('keypoints', [])
             if len(front_keypoints) == 33:  # keypoints는 총 33개의 데이터여야 함
@@ -1057,30 +1216,6 @@ def create_body_result(request) -> Response:
                 side_keypoint_serializer.save()
             else:
                 raise ValueError(f"Invalid side keypoints: {side_keypoints}")
-
-            # 이미지 처리
-            # created_dt = dt.now().strftime('%Y%m%dT%H%M%S%f')
-            # String -> datetime 변환 후 날짜포맷 설정
-            _db_created_dt = dt.strptime(serializer.data['created_dt'], '%Y-%m-%dT%H:%M:%S.%f')
-
-            created_dt = _db_created_dt.strftime('%Y%m%dT%H%M%S%f')
-
-            image_front = request.data.get('image_front')
-            image_side = request.data.get('image_side')
-
-            if image_front and image_side:
-                try:
-                    verified_front = verify_image(image_front)
-                    verified_side = verify_image(image_side)
-                    upload_image_to_s3(verified_front, file_keys=['front', created_dt])
-                    upload_image_to_s3(verified_side, file_keys=['side', created_dt])
-                except ValueError as ve:
-                    raise ValueError(f"Invalid image format: {str(ve)}")
-            else:  # 이미지 누락 처리
-                missing_images = []
-                if not image_front: missing_images.append("image_front")
-                if not image_side: missing_images.append("image_side")
-                raise ValueError(f"Missing images: {', '.join(missing_images)}")
 
         calculate_active_users()  # 활성 사용자 갱신
 
