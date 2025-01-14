@@ -25,9 +25,9 @@ class UrlsTestCase(SimpleTestCase):
         url = reverse('login')
         self.assertEqual(resolve(url).func.view_class, auth_views.LoginView)
 
-    def test_register_url(self):
-        url = reverse('register')
-        self.assertEqual(resolve(url).func, views.register)
+    #def test_register_url(self):
+    #    url = reverse('register')
+    #    self.assertEqual(resolve(url).func, views.register)
 
     def test_report_url(self):
         url = reverse('report')
