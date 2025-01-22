@@ -15,8 +15,9 @@ phone_number = '01012345678'
 password = '1234'
 kiosk_id = 'jifjaeijfieajfi'
 
+
 class UrlsTestCase(SimpleTestCase):
-    
+
     def test_home_url(self):
         url = reverse('home')
         self.assertEqual(resolve(url).func, views.home)
@@ -25,9 +26,13 @@ class UrlsTestCase(SimpleTestCase):
         url = reverse('login')
         self.assertEqual(resolve(url).func.view_class, auth_views.LoginView)
 
-    #def test_register_url(self):
-    #    url = reverse('register')
-    #    self.assertEqual(resolve(url).func, views.register)
+    def test_org_register_url(self):
+        url = reverse('org_register')
+        self.assertEqual(resolve(url).func, views.org_register)
+
+    def test_member_register_url(self):
+        url = reverse('member_register')
+        self.assertEqual(resolve(url).func, views.member_register)
 
     def test_report_url(self):
         url = reverse('report')
@@ -77,6 +82,7 @@ class UrlsTestCase(SimpleTestCase):
         url = reverse('end_session')
         self.assertEqual(resolve(url).func, views.end_session)
 
+
 class GaitResultTests(TestCase):
     def setUp(self):
         self.kiosk_client = APIClient()
@@ -102,11 +108,14 @@ class GaitResultTests(TestCase):
         self.session_key = response.data['data']['session_key']
 
         # Login mobile using QR code
-        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key}, format='json')
+        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key},
+                                           format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Login kiosk using ID and Password
-        response = self.kiosk_client.post('/api/login-kiosk-id/', {'session_key': self.session_key, 'phone_number': phone_number, 'password': password}, format='json')
+        response = self.kiosk_client.post('/api/login-kiosk-id/',
+                                          {'session_key': self.session_key, 'phone_number': phone_number,
+                                           'password': password}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Prepare gait data
@@ -148,7 +157,8 @@ class GaitResultTests(TestCase):
         self.assertIsInstance(response.data['data'], list)
 
         # Case 2 : using session_key (kiosk)
-        response = self.kiosk_client.get(base_url + 'api/analysis/gait/get_result/', {'session_key': self.session_key, 'id': 1}, format='json')
+        response = self.kiosk_client.get(base_url + 'api/analysis/gait/get_result/',
+                                         {'session_key': self.session_key, 'id': 1}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('data', response.data)
         self.assertIsInstance(response.data['data'], list)
@@ -184,11 +194,14 @@ class BodyResultTests(TestCase):
         self.session_key = response.data['data']['session_key']
 
         # Login mobile using QR code
-        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key}, format='json')
+        response = self.mobile_client.post('/api/mobile/login-mobile-qr/', {'session_key': self.session_key},
+                                           format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Login kiosk using ID and Password
-        response = self.kiosk_client.post('/api/login-kiosk-id/', {'session_key': self.session_key, 'phone_number': phone_number, 'password': password}, format='json')
+        response = self.kiosk_client.post('/api/login-kiosk-id/',
+                                          {'session_key': self.session_key, 'phone_number': phone_number,
+                                           'password': password}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Prepare body data
@@ -223,7 +236,8 @@ class BodyResultTests(TestCase):
         self.assertIsInstance(response.data['data'], list)
 
         # Case 2 : using session_key (kiosk)
-        response = self.kiosk_client.get(base_url + 'api/analysis/body/get_result/', {'session_key': self.session_key, 'id': 1}, format='json')
+        response = self.kiosk_client.get(base_url + 'api/analysis/body/get_result/',
+                                         {'session_key': self.session_key, 'id': 1}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('data', response.data)
         self.assertIsInstance(response.data['data'], list)
@@ -232,3 +246,34 @@ class BodyResultTests(TestCase):
         invalid_data = {'body_data': self.body_data['body_data']}  # No session key provided
         response = self.kiosk_client.post(base_url + 'api/analysis/body/create_result/', invalid_data, format='json')
         self.assertEqual(response.data['data']['message'], 'session_key_required')
+
+
+class mobileTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        # Create the required objects
+        self.user_info = UserInfo.objects.create(
+            username=phone_number,
+            phone_number=phone_number,
+            password=make_password(password)
+        )
+
+        # Authenticate and get access token
+        auth_response = self.client.post('/api/mobile/login-mobile-id/', {'id': phone_number, 'password': password},
+                                         format='json')
+        auth_data = auth_response.json()['data']
+        self.assertEqual(auth_response.status_code, status.HTTP_200_OK) and self.assertIn('jwt_tokens', auth_data)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + auth_data['jwt_tokens']['access_token'])
+
+    def test_get_user_success(self):
+        response = self.client.post(base_url + 'api/mobile/user/get_user/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('data', response.data)
+        self.assertIsInstance(response.data['data'], dict)
+
+    def test_delete_user_success(self):
+        response = self.client.post(base_url + 'api/mobile/user/delete_user/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
