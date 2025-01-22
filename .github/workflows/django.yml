@@ -1,10 +1,10 @@
 name: Django CI
 
 on:
-#  push:
-#  branches: ["main"]
-  pull_request:
+  push:
     branches: ["main"]
+#  pull_request:
+#    branches: ["main"]
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           echo "AWS_STORAGE_BUCKET_NAME=${{ secrets.AWS_STORAGE_BUCKET_NAME }}" >> .env
           echo "AWS_S3_REGION_NAME=${{ secrets.AWS_S3_REGION_NAME }}" >> .env
-          echo "ENVIRONMENT=prod" >> .env
+          echo "ENVIRONMENT"=prod >> .env
           cat .env
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -49,6 +49,7 @@ jobs:
 
       - name: DB migration
         run: |
+          rm -rf analysis/migrations
           python manage.py makemigrations analysis
           python manage.py migrate
 
