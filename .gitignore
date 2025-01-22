@@ -177,4 +177,5 @@ cython_debug/
 test_samples/*
 *migrations/
 .idea/
-session_cleanup.log
+logs/*
+**/.DS_Store
