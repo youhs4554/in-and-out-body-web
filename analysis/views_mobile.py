@@ -116,13 +116,13 @@ def login_mobile(request):
 @swagger_auto_schema(
     method='post',
     operation_summary="모바일 로그인 ID/PW 로그인(토큰 발급) - ID, PW",
-    operation_description="Authenticate mobile device using ID, PW",
+    operation_description="Authenticate mobile device using ID and password to issue JWT tokens.",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
             'id': openapi.Schema(
                 type=openapi.TYPE_STRING,
-                description='User ID(phone number)'
+                description='User ID (phone number)'
             ),
             'password': openapi.Schema(
                 type=openapi.TYPE_STRING,
@@ -133,34 +133,42 @@ def login_mobile(request):
     ),
     responses={
         200: openapi.Response(
-            description='Success',
+            description='Success or User Not Found',
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
                     'data': openapi.Schema(
                         type=openapi.TYPE_OBJECT,
+                        description='Response data for successful authentication.',
                         properties={
                             'user_info': openapi.Schema(
                                 type=openapi.TYPE_OBJECT,
-                                description='User information'
+                                description='User information object, structure depends on implementation.'
                             ),
                             'jwt_tokens': openapi.Schema(
                                 type=openapi.TYPE_OBJECT,
+                                description='JWT tokens issued upon successful authentication.',
                                 properties={
                                     'access_token': openapi.Schema(
                                         type=openapi.TYPE_STRING,
-                                        description='Access token'
+                                        description='Access token for authenticated requests.'
                                     ),
                                     'refresh_token': openapi.Schema(
                                         type=openapi.TYPE_STRING,
-                                        description='Refresh token'
+                                        description='Refresh token for obtaining a new access token.'
                                     ),
                                 }
                             ),
-                            'is_default_password': openapi.Schema(type=openapi.TYPE_BOOLEAN,
-                                                                  description='True if the password is default')
+                            'is_default_password': openapi.Schema(
+                                type=openapi.TYPE_BOOLEAN,
+                                description='Indicates whether the user is using the default password.'
+                            ),
                         }
                     ),
+                    'message': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description="'user_not_found' if authentication fails."
+                    )
                 }
             )
         ),
@@ -171,19 +179,7 @@ def login_mobile(request):
                 properties={
                     'message': openapi.Schema(
                         type=openapi.TYPE_STRING,
-                        description='id_password_required'
-                    )
-                }
-            )
-        ),
-        401: openapi.Response(
-            description='Unauthorized',
-            schema=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'message': openapi.Schema(
-                        type=openapi.TYPE_STRING,
-                        description='user_not_found or incorrect_password'
+                        description="'id_password_required' if ID or password is missing."
                     )
                 }
             )
@@ -192,7 +188,7 @@ def login_mobile(request):
 )
 @api_view(['POST'])
 def login_mobile_id(request):
-    id = request.data.get('id')
+    id = request.data.get('id')  # phone_number
     password = request.data.get('password')
 
     if not id or not password:
@@ -201,10 +197,7 @@ def login_mobile_id(request):
     try:
         req_user_info = UserInfo.objects.get(Q(phone_number=id))
         if not check_password(password, req_user_info.password):
-            return Response(
-                {'message': 'user_not_found or incorrect_password'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({'message': 'user_not_found'}, status=status.HTTP_200_OK)
 
         # 마지막 로그인 시간 갱신
         req_user_info.last_login = dt.now()
@@ -232,10 +225,7 @@ def login_mobile_id(request):
 
     except UserInfo.DoesNotExist:
         # UserInfo를 찾을 수 없는 경우 처리
-        return Response(
-            {'message': 'user_not_found or incorrect_password'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
+        return Response({'message': 'user_not_found'}, status=status.HTTP_200_OK)
 
 
 @swagger_auto_schema(

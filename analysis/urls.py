@@ -1,8 +1,10 @@
-
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
 from analysis.custom.custom_token import CustomTokenObtainPairView, CustomTokenRefreshView
+
+from analysis.custom.permissions import IsAllowedIP
+from django.views.static import serve
 
 from . import views, views_mobile
 from rest_framework_simplejwt.views import (
@@ -25,7 +27,8 @@ schema_view = get_schema_view(
         license=openapi.License(name="BSD License"),
     ),
     public=True,
-    permission_classes=(permissions.AllowAny,),
+    # permission_classes=(permissions.AllowAny,),
+    permission_classes=(IsAllowedIP,),  # 허용된 IP주소만 접근 가능
 )
 
 urlpatterns = [
@@ -93,10 +96,19 @@ urlpatterns = [
     path('api/mobile/body/sync_body_result/',   views_mobile.mobile_body_sync,   name='mobile-body-mobile_body_sync'),   # 체형 결과 동기화(bodyresults의 ID값만 반환함)
     # path('api/mobile/gait/sync_gait_result/',   views_mobile.mobile_gait_sync,   name='mobile-gait-mobile_gait_sync'),   # 보행 결과 동기화(gaitresults의 ID값만 반환함)
     path('api/mobile/login-mobile-id/',         views_mobile.login_mobile_id,    name='mobile-auth-request_auth_id'),     # ID 로그인 요청 (ID를 사용하여 로그인)
+
+
+    # 디버그 환경이 아닐 때도 Swagger에 접근이 가능하나 단, 허용된 IP만 접근 가능
+    re_path(r'^docs(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name="schema-json"),
+    re_path(r'^docs/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+
+    re_path(r'^static/(?P<path>.*)$', serve, {'document_root':settings.STATIC_ROOT}),
 ]
 
-if settings.DEBUG:
-    urlpatterns += [
-        re_path(r'^docs(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name="schema-json"),
-        re_path(r'^docs/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-        re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),    ]
+# 디버그 시 실행 부분
+# if settings.DEBUG:
+#     urlpatterns += [
+#         re_path(r'^docs(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name="schema-json"),
+#         re_path(r'^docs/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+#         re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),    ]
