@@ -1,0 +1,867 @@
+{% load static %}
+{% load custom_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv=”Cache-Control” content=”No-Cache”>
+    <title>체형 분석 보고서</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/report-favicon.ico' %}" >
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-2RNGQ9YFFS');
+    </script>
+    <style>
+        /* 최상단 네비게이터 버튼 */
+        .scroll-to-top {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 40px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .scroll-to-top:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+        }
+
+        /* 모달 내용 */
+        .modal-content {
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        /* 모달 닫기 버튼 */
+        .modal .close {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            color: #fff;
+            font-size: 35px;
+            cursor: pointer;
+        }
+
+        /* 플로팅 이미지 DIV */
+        #floating-images {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: none;
+        }
+
+        /* 플로팅 이미지 2차 DIV */
+        .floating-images-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        /* 각 사진(정면, 측면) DIV */
+        .floating-image {
+            text-align: center;
+        }
+        
+        .floating-image p {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: rgba(0, 0, 0, 0.8);
+        }
+        
+        .floating-image img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .floating-image img:hover {
+            transform: scale(1.05);
+        }
+
+        /* 모바일 반응형 */
+        @media (max-width: 768px) {
+            body { 
+                padding: 0.5em!important;
+            }
+
+            /* 플로팅 이미지 관련 */
+            #floating-images {
+                position: fixed;
+                top: -100%;  /* 처음에는 화면 위로 숨김 */
+                left: 50%; /* 가운데 정렬 */
+                transform: translate(-50%, -150%); /* X, Y */
+                transition: transform 0.5s ease, opacity 0.5s ease;
+                background: rgba(255, 255, 255, 0.95);
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                border-top: none;
+            }
+        
+            #floating-images.show {
+                top: 0;
+                transform: translate(-50%, 0);
+                opacity: 1;
+                visibility: visible;
+            }
+        
+            .floating-images-container {
+                justify-content: center;
+            }
+        
+            .floating-image {
+                max-width: 120px;
+            }
+
+            /* 전체 콘텐츠 DIV */
+            .max-w-4xl {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            /* "체형 분석 결과", "체형 스캔" 데코레이션(그라데이션) 들어가있는 텍스트 */
+            .main-title {
+                font-size: 2rem;
+                line-height: 150%;
+                letter-spacing: 0.1em;
+            }
+            
+            /* main-title 밑의 텍스트 (스캔항목) */
+            .sub-title {
+                font-size: 1.5rem;
+                line-height: 150%;
+                letter-spacing: 0.1em;
+            }
+            
+            /* 각 아이템 DIV */
+            .report-card {
+                width: 100%;
+                padding: 15px;
+                margin: 10px 0;
+                flex-direction: column;
+            }
+            
+            /* 각 아이템 텍스트 전용 DIV */
+            .report-card .left-content {
+                max-width: 100%;
+                margin-bottom: 15px;
+            }
+            
+            .report-card .title {
+                font-size: 2rem;
+                line-height: 150%;
+            }
+            
+            .report-card .description-label {
+                font-size: 1.2rem;
+                line-height: 150%;
+            }
+            
+            .report-card .description-value {
+                font-size: 1.1rem;
+            }
+            
+            /* 정상 혹은 의심, 주의 표시 */
+            .report-card .result-value {
+                font-size: 1.6rem !important;
+            }
+            
+            /* svg */
+            .report-card img {
+                width: 120px;
+                height: 120px;
+                margin: 10px auto;
+            }
+            
+            .image-container {
+                flex-direction: row;
+                margin: 0;
+            }
+
+            .image-title {
+                font-size: 1.5rem;
+            }
+            
+            .image-block {
+                width: 100%;
+            }
+            
+            
+            .modal-content { 
+                height: auto;
+            }
+            
+            .summary-sub-title {
+                font-size: 1.3rem;
+            }
+            
+            .summary-evaluation-row {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 15px 0;
+            }
+            
+            .summary-title {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .summary-description {
+                width: 100%;
+                text-align: right;
+            }
+            
+            .date-score-container {
+                overflow-x: scroll;
+            }
+
+            /* 분석 결과 날짜 */
+            .date-item {
+                min-width: 150px;
+                padding: 8px;
+            }
+            
+            .date-text {
+                font-size: 0.8rem;
+            }
+            
+            /* 변화 추이 */
+            .mb-6 canvas {
+                height: 200px !important;
+                width:100%!important;
+            }
+            
+            .user-type h1 {
+                font-size: 1.2rem;
+                text-align: center;
+                padding: 0 10px;
+            }
+
+            
+            
+        }
+
+        @media (min-width: 769px) {
+            #floating-images {
+                right: -300px;
+                top: 50%;
+                width: 200px;
+                transform: translateY(-50%);
+            }
+            
+            #floating-images.show {
+                right: 20px;
+                opacity: 1;
+                visibility: visible;
+            }
+        
+            .floating-images-container {
+                flex-direction: column;
+            }
+        
+            .floating-image {
+                margin-bottom: 15px;
+            }
+        
+            .floating-image:last-child {
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6" id="report-body">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <div class="items-center justify-center flex user-type">
+            {% if user.user_type == 'S' %}
+                    <h1 class="antialiased hover:subpixel-antialiased">{{ user.school.school_name }} {{ user.student_grade }} 학년 {{ user.student_class }} 반 {{ user.student_number }} 번 {{ user.student_name }} 님</h1>
+                    {% elif user.user_type == 'O' %}
+                    <h1 class="antialiased hover:subpixel-antialiased">{{ user.organization.organization_name }} {{ user.department }} {{ user.student_name }} 님</h1>
+                    {% else %}
+                    <h1 class="antialiased hover:subpixel-antialiased">(일반인 사용자) {{ user.student_name }} 님</h1>
+                    {% endif %}
+            </div>
+
+            {% if sorted_dates|length > 1 %} {% comment %} 이전 검사 결과들이 존재할 때만 표시 {% endcomment %}
+            <div class="justify-center flex dates-icon" style="align-items: center;">
+                <i class="bi bi-calendar-check"> 이전 분석 결과</i>&nbsp;
+                <h3 id="items_size" class="text-lg"></h3>
+            </div>
+            <div class="justify-center flex">
+                
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <!-- 날짜 선택 및 점수 부분-->
+                <div class="date-score-container">
+                    <form method="get" class="date-selector">
+                        <div class="date-list">
+                            {% for date in sorted_dates %}
+                            <label class="date-item {% if date == selected_date or date == report_date %}selected{% endif %}">
+                                <input type="radio" name="selected_date" value="{{ date }}" 
+                                    {% if date == selected_date or date == report_date %}checked{% endif %}
+                                    onchange="this.form.submit()">
+                                <div class="date-content">
+                                    <div class="date-text">{{ date }}</div>
+                                    <div class="score-indicator">
+                                        <span class="emoji" id="emoji-{{ date }}"></span>
+                                        <span class="score" id="score-{{ date }}"></span>
+                                    </div>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}    
+        <div class="main-title">체형 분석 결과</div>
+
+        <!-- Result Image -->
+        <div class="image-container">
+            <div class="image-block">
+                <p class="image-title">정면 이미지</p>
+                <div class="image-wrapper">
+                    <img src="{{ image_front_url }}" alt="Front Image">
+                    <div class="overlay-right">왼쪽</div>
+                    <div class="overlay-left">오른쪽</div>
+                </div>
+            </div>
+            <div class="image-block">
+                <p class="image-title">측면 이미지</p>
+                <div class="image-wrapper">
+                    <img src="{{ image_side_url }}" alt="Side Image">
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Image Display -->
+        <div id="floating-images">
+            <div class="floating-images-container">
+                <div class="floating-image">
+                    <p>정면 이미지</p>
+                    <img src="{{ image_front_url }}" alt="Front Image">
+                </div>
+                <div class="floating-image">
+                    <p>측면 이미지</p>
+                    <img src="{{ image_side_url }}" alt="Side Image">
+                </div>
+            </div>
+        </div>
+
+
+        <!-- 종합 평가 -->
+        <div class="mb-6">
+            <div class="summary-sub-title">
+                나의 체형 종합 평가 
+                <span class="summary-info-icon" title="위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다. 건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.">
+                    ⓘ
+                </span>
+            </div>
+            <div class="summary-evaluation-container">
+                {% for item in report_items %}
+                    
+                    <div class="summary-evaluation-row">
+                        <div class="summary-title">{{ item.title }}</div>
+                        <div class="summary-description">
+                            {% if item.description_list %}
+                            <!-- 배열일 경우, /로 연결 -->
+                            <p>
+                                {% for summary_item in item.summary %}
+                                    <span style="color: {% if '정상' in summary_item or '양호' in summary_item %}green{% else %}orange{% endif %};">
+                                        {{ summary_item }}
+                                    </span>{% if not forloop.last %} / {% endif %}
+                                {% endfor %}
+                            </p>
+                            {% else %}
+                                {{ item.description }} <!-- 배열이 아닐 경우 그대로 표시 -->
+                            {% endif %}
+                            {% if item.description_list %}
+                                <p>
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% else %}
+                                <!-- item.result에 '정상' 또는 '양호'가 포함되었는지 검사 (배열이 아닐 경우에만 적용) -->
+                                <p style="color: {% if item.description_list is not defined %} {% if '정상' in item.result or '양호' in item.result %}green{% else %}orange{% endif %} {% endif %};">
+                                    {% for result_item in item.result|split:',' %}
+                                        {{ result_item|trim }}<br>
+                                    {% endfor %}
+                                </p>
+                            {% endif %}
+                        </div>
+                        <div class="summary-description">{{ item.metric }}</div>
+                    </div>
+                    <hr class="summary-divider-line" /> <!-- Divider line -->
+                {% endfor %}
+            </div>
+        </div>        
+        <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+            건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- Report Cards for All Items -->
+        {% for item in report_items %}
+            <div class="main-title">체형 스캔</div>
+            <div class="sub-title">스캔 항목</div>
+            <div class="report-card">
+                <div class="left-content">
+                    <div class="title">{{ item.title }}</div>
+                    <div class="description-label">측정 결과 | {{ item.metric }}</div>
+                    {% if item.description_list %}
+                        {% for description_item in item.description %}
+                            <div class="description-value">⭐️ {{ description_item }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="description-value">{{ item.description }}</div>
+                    {% endif %}
+                    <div class="result-value" style="font-size: {% if item.result|split:','|length > 1 %}1.5rem{% else %}3rem{% endif %};">
+                        {% for result_item in item.result|split:',' %}
+                            {{ result_item|trim }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+                <img src="{% static 'icons/' %}{{ item.alias }}.svg" alt="{{ item.title }} icon">
+            </div>
+            
+
+            <!-- Line Chart -->
+            <div class="mb-6" id="trendChart-{{ item.alias }}">
+                <div class="sub-title">변화 추이 - {{ item.title }}</div>
+                <canvas id="chart_{{ item.alias }}" class="w-full h-64" id="chart_canvas"></canvas>
+            </div>
+
+            <!-- Section Contents (detailed explanation) -->
+            <div class="mb-6">
+                <div class="mb-6 p-4 border rounded-lg bg-white">
+                    <h2 class="text-xl font-semibold mb-2">{{ item.title }}</h2>
+                    {% for key, content in item.sections.items %}
+                        {% if key == '권장계획' %}
+                            <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
+                                <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
+                                {% for content_ in content %}
+                                    <li class="text-sm text-gray-600">{{ content_|safe }}</li>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div id="{{ key }}" class="mb-6 p-4 border rounded-lg bg-white">
+                                <h2 class="text-xl font-semibold mb-2">{{ key }}</h2>
+                                <p class="text-sm text-gray-600">{{ content|safe }}</p>
+                            </div>
+                        {% endif %}
+
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="caution-text">⚠️ 위 내용은 일반적으로 알려진 의학상식에 대한 설명이며 스캔 결과가 의학적 판단 및 진단과는 무관합니다.
+                건강관리 목적이 아닌 의료적인 진단을 위해서는 의사와 상담하시기 바랍니다.</div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+        {% endfor %}
+        <button class="scroll-to-top"><i class="bi bi-arrow-up-short"></i></button>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const datesSize = '{{sorted_dates|length}}';
+            const originalTrendDataDict = {{ trend_data_dict|safe }};
+            const dateScores = {};
+    
+            // 날짜순 정렬을 위한 데이터 준비
+            const trendDataDict = {};
+            
+            // 날짜 기준 오름차순 정렬
+            Object.entries(originalTrendDataDict).forEach(([key, data]) => {
+                const combined = data.dates.map((date, index) => ({
+                    date: date,
+                    values: Object.keys(data)
+                        .filter(k => k !== "dates" && k !== "part")
+                        .reduce((acc, k) => {
+                            acc[k] = Array.isArray(data[k]) ? data[k][index] : data[k];
+                            return acc;
+                        }, {})
+                }));
+                
+                // 날짜순 정렬 (과거 -> 최신)
+                combined.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                const sortedData = { 
+                    dates: combined.map(item => item.date),
+                    part: data.part // part 데이터는 그대로 유지
+                };
+                Object.keys(data).forEach(key => {
+                    if (key !== "dates" && key !== "part") {
+                        sortedData[key] = combined.map(item => item.values[key]);
+                    }
+                });
+                trendDataDict[key] = sortedData;
+            });
+
+
+            // 점수 계산
+            {% for item in report_items %}
+            var itemAlias = '{{ item.alias }}';
+            var normalRange = {{ item.normal_range|safe }};
+            var trendData = trendDataDict[itemAlias];
+            
+            trendData.dates.forEach((date, index) => {
+                if (!dateScores[date]) {
+                    dateScores[date] = {normal: 0, total: 11};
+                }
+                
+                if (itemAlias === 'spinal_imbalance' || itemAlias === 'o_x_legs' || itemAlias === 'knee_angle') {
+                    const val1 = trendData.val1[index];
+                    const val2 = trendData.val2[index];
+                    if (val1 >= normalRange[0] && val1 <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
+                    if (val2 >= normalRange[0] && val2 <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
+                } else {
+                    const value = trendData.values[index];
+                    if (value >= normalRange[0] && value <= normalRange[1]) {
+                        dateScores[date].normal++;
+                    }
+                }
+            });
+            {% endfor %}
+
+            if (parseInt(datesSize) > 1) {
+            // 날짜별 점수 표시 업데이트
+            function updateDateScoreDisplay() {
+                Object.entries(dateScores).forEach(([date, score]) => {
+                    const emoji = document.getElementById(`emoji-${date}`);
+                    const scoreElement = document.getElementById(`score-${date}`);
+                    const ratio = score.normal / score.total;
+                    
+                    // 이모지 설정
+                    if (ratio >= 0.8) {
+                        emoji.textContent = '😊';
+                        scoreElement.className = 'score score-high';
+                    } else if (ratio >= 0.5) {
+                        emoji.textContent = '🙂';
+                        scoreElement.className = 'score score-medium';
+                    } else {
+                        emoji.textContent = '😟';
+                        scoreElement.className = 'score score-low';
+                    }
+                    
+                    // 점수 표시
+                    scoreElement.textContent = `점수 : ${score.normal}/${score.total}`;
+                });
+
+                const items_size = document.getElementById('items_size');
+                items_size.textContent = `총 ${datesSize}개의 검사 결과`;
+            }
+
+            // 선택된 날짜까지의 스크롤 함수
+            function scrollToSelectedDate() {
+                const container = document.querySelector('.date-score-container');
+                const selectedDate = document.querySelector('.date-item.selected');
+                
+                if (container && selectedDate) {
+                  const containerRect = container.getBoundingClientRect();
+                  const selectedRect = selectedDate.getBoundingClientRect();
+                  
+                  container.scrollLeft = selectedRect.left - containerRect.left + container.scrollLeft - (containerRect.width / 2) + (selectedRect.width / 2);
+                }
+              }
+            }
+            
+
+            
+
+
+
+            // Prepare trend data as JSON
+            {% comment %} const trendDataDict = {{ trend_data_dict|safe }}; {% endcomment %}
+            // Initialize charts for each item
+            {% for item in report_items %}
+                var ctx = document.getElementById('chart_{{ item.alias }}').getContext('2d');
+                var normalRange = {{ item.normal_range|safe }}; // Extract the normal range
+                var valueRange = {{ item.value_range|safe }};   // Extract the value range
+                var trendChart = document.getElementById('trendChart-{{ item.alias }}');
+                
+                {% if item.alias == 'spinal_imbalance' or item.alias == 'o_x_legs' or item.alias == 'knee_angle' %}
+                    var trendData = trendDataDict['{{ item.alias }}'];
+                    var values = trendData.val1.concat(trendData.val2 || []).concat(valueRange || []);
+    
+                    var minValue = Math.min(...values);
+                    var maxValue = Math.max(...values);
+    
+                    // Calculate margin
+                    var margin = 0.01 * (maxValue - minValue);
+                    var yMin = minValue - margin;
+                    var yMax = maxValue + margin;
+
+                    trendDataDict['{{item.alias}}'].dates.forEach((date, index) => {
+                        // String을 10자로 자르기
+                        trendDataDict['{{item.alias}}'].dates[index] = date.slice(0, 10);
+                    });
+
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: trendDataDict['{{ item.alias }}'].part[0],
+                                data: trendDataDict['{{ item.alias }}'].val1,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
+                            },
+                            {
+                                label: trendDataDict['{{ item.alias }}'].part[1],
+                                data: trendDataDict['{{ item.alias }}'].val2,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderWidth: 3,
+                            },
+                            {
+                                label: '정상 범위', // Add this label to the legend
+                                data: [], // No data for this dataset
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                {% else %}
+                    var trendData = trendDataDict['{{ item.alias }}'];
+                    var values = trendData.values.concat(valueRange || []);;
+    
+                    var minValue = Math.min(...values);
+                    var maxValue = Math.max(...values);
+    
+                    // Calculate margin
+                    var margin = 0.01 * (maxValue - minValue);
+                    var yMin = minValue - margin;
+                    var yMax = maxValue + margin;
+                    var trendChart = document.getElementById('trendChart-{{ item.alias }}');
+
+                    trendDataDict['{{item.alias}}'].dates.forEach((date, index) => {
+                        trendDataDict['{{item.alias}}'].dates[index] = date.slice(0, 10);
+                    });
+
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trendDataDict['{{ item.alias }}'].dates,
+                            datasets: [{
+                                label: '{{ item.title }}',
+                                data: trendDataDict['{{ item.alias }}'].values,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 3,
+                            },
+                            {
+                                label: '정상 범위', // Add this label to the legend
+                                data: [], // No data for this dataset
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: '검사 일시' }},
+                                y: {
+                                    title: { display: true, text: '측정 결과' },
+                                    min: yMin,  // Set the minimum value for y-axis
+                                    max: yMax   // Set the maximum value for y-axis
+                                }
+                            },
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        box1: {
+                                            type: 'box',
+                                            yMin: normalRange[0],
+                                            yMax: normalRange[1],
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            borderWidth: 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                {% endif %}
+            {% endfor %}
+
+            if (parseInt(datesSize) > 1) {
+                updateDateScoreDisplay();
+                scrollToSelectedDate();
+            }
+
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const floatingImages = document.getElementById('floating-images');
+            const imageContainer = document.querySelector('.image-container');
+            
+            // 모달 설정 
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <span class="close">&times;</span>
+                <img class="modal-content" id="modalImg">
+            `;
+            document.body.appendChild(modal);
+            
+            // 이미지 클릭 이벤트
+            const images = document.querySelectorAll('.image-block img, #floating-images img');
+            const modalImg = document.getElementById('modalImg');
+            const closeBtn = modal.querySelector('.close');
+            
+            images.forEach(img => {
+                img.addEventListener('click', function() {
+                    modal.style.display = 'flex';
+                    modalImg.src = this.src;
+                });
+            });
+            
+            // 모달 창 닫기 
+            closeBtn.addEventListener('click', () => modal.style.display = 'none');
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            // 플로팅 이미지 표시/숨김 처리
+            function updateFloatingImagesVisibility() {
+                const rect = imageContainer.getBoundingClientRect();
+                const isMobile = window.innerWidth <= 768;
+                
+                if (rect.bottom < 0) {
+                    floatingImages.style.display = 'block';
+                    setTimeout(() => {
+                        floatingImages.classList.add('show');
+                    }, 500);
+                } else {
+                    floatingImages.classList.remove('show');
+                    setTimeout(() => {
+                        floatingImages.style.display = 'none';
+                    }, 100);
+                }
+            }
+            
+            // 스크롤 이벤트 리스너 등록
+            window.addEventListener('scroll', updateFloatingImagesVisibility);
+            window.addEventListener('resize', updateFloatingImagesVisibility);
+            
+            // init 
+            updateFloatingImagesVisibility();
+
+
+
+            // 스크롤 최상단 버튼 관련
+            const scrollButton = document.querySelector('.scroll-to-top');
+    
+            // 스크롤 버튼 표시/숨김 처리
+            function toggleScrollButton() {
+                if (window.scrollY > 200) {
+                    scrollButton.style.display = 'block';
+                } else {
+                    scrollButton.style.display = 'none';
+                }
+            }
+            
+            // 최상단으로 스크롤
+            scrollButton.addEventListener('click', function() {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+            
+            // 스크롤 이벤트 리스너
+            window.addEventListener('scroll', toggleScrollButton);
+            
+            // 초기 상태 체크
+            toggleScrollButton();
+        });
+        
+        
+    </script>    
+</body>
+</html>

@@ -1,4 +1,16 @@
-django
+django==4.2.15
 pandas
 openpyxl
 fontawesomefree
+python-dotenv
+djangorestframework
+djangorestframework-simplejwt
+drf-yasg
+psycopg2-binary
+boto3
+django-storages
+pillow
+requests
+django-prometheus
+apscheduler
+django_apscheduler

@@ -1,0 +1,642 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Register Org{% endblock %}
+
+{% block content %}
+<style>
+    /* 컨테이너와 제목을 감싸는 wrapper 스타일 */
+    .page-transition-wrapper {
+        width: 90%;
+        margin: 1rem auto;
+    }
+
+
+    /* 기본 컨테이너 스타일 */
+    .register-container {
+        width: 100%;
+        height: 85vh;
+        margin: 2rem auto;
+        margin-top: 0;
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        padding: 2px;
+        border: 1px solid #979797;
+    }
+
+    .page-title {
+        position: relative;
+        display: inline-block;
+        padding: 8px 24px;
+        background: #76b6d2;
+        color: white;
+        font-size: 1.2rem;
+        border-radius: 8px 8px 0 0;
+        margin: 0 0 -1px 7px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 1;
+    }
+
+    #orgSearchInput {
+        padding: 12px 35px;
+        width: calc(100% - 70px);
+    }
+
+
+    .search-map-container {
+        display: flex;
+        height: 100%;
+        background: #fff;
+        border-radius: inherit;
+        overflow: hidden;
+    }
+
+    /* 검색 패널 */
+    .search-panel {
+        width: 420px;
+        padding: 24px;
+        border-right: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        background: #f8f9fa;
+    }
+
+    /* 검색 박스 */
+    .search-box {
+        position: relative;
+        width: 100%;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 14px 44px;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        font-size: 16px;
+        transition: all 0.3s;
+        background: white;
+    }
+
+    .search-box input:focus {
+        border-color: #76b6d2;
+        box-shadow: 0 0 0 4px rgba(118, 182, 210, 0.1);
+        outline: none;
+    }
+
+    .search-box .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+    }
+
+    /* 카드 공통 스타일 */
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    /* 현재 기관 정보 카드 */
+    .org-info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .card-header h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .card-content > p {
+        font-size: 1.1rem;
+        color: #666;
+        line-height: 1.4;
+    }
+
+    .card-content > p strong {
+        color: #2c3e50;  /* 더 진한 색상 */
+        font-weight: 600;  /* semi-bold */
+    }
+
+    .badge {
+        background: #76b6d2;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    /* 검색 결과 */
+    .search-results {
+        flex: 1;
+        overflow-y: auto;
+        composes: card;
+        max-height: calc(100% - 250px);
+    }
+
+    .result-item {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .result-item:hover {
+        background-color: #f5f6fa;
+        transform: translateX(4px);
+    }
+
+    .result-item strong {
+        display: block;
+        color: #2c3e50;
+        margin-bottom: 6px;
+    }
+
+    .org-info {
+        font-size: 0.9rem;
+        color: #666;
+        line-height: 1.4;
+    }
+
+    /* 지도 영역 */
+    .map-wrapper {
+        flex: 1;
+        position: relative;
+    }
+
+    .map-container {
+        position: absolute;
+        inset: 0;
+    }
+
+    #map {
+        width: 100%;
+        height: 100%;
+        border-radius: 0 12px 12px 0;
+    }
+
+    /* 선택된 기관 카드 */
+    .selected-org-card {
+        position: absolute;
+        bottom: 24px;
+        left: 24px;
+        right: 24px;
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        z-index: 2;
+        animation: slideIn 0.3s ease;
+    }
+
+    /* 버튼 스타일 */
+    .btn-primary {
+        width: 100%;
+        padding: 14px;
+        background: #76b6d2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 16px;
+    }
+
+    .btn-primary:hover {
+        background: #5a9cbd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(90, 156, 189, 0.2);
+    }
+
+    /* 애니메이션 */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* 반응형 디자인 */
+    @media (max-width: 1024px) {
+        .register-container {
+            width: 90%;
+            height: 80vh;
+        }
+
+        .search-map-container {
+            flex-direction: column;
+        }
+
+        .search-panel {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid #eee;
+        }
+
+        #orgSearchInput {
+            width: 75%;
+        }
+
+        .map-wrapper {
+            height: 50%;
+        }
+
+        #map {
+            border-radius: 0 0 12px 12px;
+        }
+
+        .search-results {
+            max-height: 200px;
+        }
+        .org-info-card {
+            width: 83%;
+        }
+
+        .page-transition-wrapper {
+            width: 100%;
+        }
+
+        .page-title {
+            margin: 0 0 -1px 15px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .register-container {
+            width: 95%;
+        }
+
+        #orgSearchInput {
+            width: 75%;
+        }
+
+        .org-info-card {
+            width: 83%;
+        }
+
+        .search-panel {
+            padding: 16px;
+        }
+
+        .card {
+            padding: 16px;
+        }
+
+        .page-transition-wrapper {
+            width: 100%;
+        }
+
+        .page-title {
+            margin: 0 0 -1px 15px;
+        }
+    }
+
+    /* 페이지 트랜지션 타일 */
+    .page-transition-wrapper {
+        animation: fadeIn 0.3s ease-in;
+    }
+
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<!-- Step 1: 기관 정보 입력 -->
+<div class="page-transition-wrapper">
+    <h1 class="page-title">기관 등록</h1>
+    <div class="register-container">
+        <div class="search-map-container">
+            <!-- 왼쪽: 검색 및 정보 패널 -->
+            <div class="search-panel">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="orgSearchInput" placeholder="기관명을 입력하세요" />
+                </div>
+
+                <!-- 현재 등록된 기관 정보 -->
+                <div id="currentOrgInfo" class="org-info-card">
+                    <div class="card-header">
+                        <h3>현재 등록된 기관</h3>
+                        <span class="badge">현재</span>
+                    </div>
+                    <div class="card-content">
+                        <p id="selectedOrgName"></p>
+                        <p id="selectedOrgType"></p>
+                        <p id="selectedOrgAddress"></p>
+                        <p id="selectedOrgContact"></p>
+                    </div>
+                </div>
+
+                <!-- 검색 결과 목록 -->
+                <div id="searchResults" class="search-results">
+                    <!-- 검색 결과가 여기에 동적으로 추가됨 -->
+                </div>
+            </div>
+
+            <!-- 오른쪽: 지도 영역 -->
+            <div class="map-wrapper">
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+                <div id="selectedOrgCard" class="selected-org-card" style="display: none;">
+                    <h4 id="orgName"></h4>
+                    <p id="orgAddress"></p>
+                    <p id="orgContact"></p>
+                    <button id="confirmOrgButton" class="btn-primary">이 기관으로 등록하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=2ab9bb600b001508c914eb8658150523&libraries=clusterer"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 필요한 DOM 요소들을 먼저 가져옵니다
+    const searchSection = document.getElementById("searchSection");
+    const orgSearchInput = document.getElementById("orgSearchInput");
+    const orgResultsDropdown = document.getElementById("orgResultsDropdown");
+    const orgInfoSection = document.getElementById("orgInfoSection");
+    const mapContainer = document.getElementById("map");
+    const selectedOrgCard = document.getElementById("selectedOrgCard");
+    const currentOrgInfo = document.getElementById("currentOrgInfo");
+
+    // 지도 초기화
+    let map = null;
+    if (mapContainer) {
+        map = new kakao.maps.Map(mapContainer, {
+            center: new kakao.maps.LatLng(37.566826, 126.978656), // 서울 시청
+            level: 3
+        });
+    }
+
+    function getOrg() {
+        // 기관 정보 가져오기
+    fetch('/api/get-organization-info/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.org_name && currentOrgInfo) {
+            currentOrgInfo.style.display = "block";
+            document.getElementById("selectedOrgName").textContent = `기관명: `;
+            document.getElementById("selectedOrgName").innerHTML += `<strong>${data.org_name}</strong>`;
+
+            document.getElementById("selectedOrgAddress").textContent = `주소: `;
+            document.getElementById("selectedOrgAddress").innerHTML += `<strong>${data.address || '정보 없음'}</strong>`;
+
+            document.getElementById("selectedOrgContact").textContent = `연락처: `;
+            document.getElementById("selectedOrgContact").innerHTML += `<strong>${data.contact || '정보 없음'}</strong>`;
+
+            document.getElementById("selectedOrgType").textContent = '타입: ';
+            document.getElementById("selectedOrgType").innerHTML += `<strong>${data.type == 'school' ? '학교' : '기관'}</strong>`;
+        }
+    })
+    .catch(error => console.error('Error fetching organization info:', error));
+    }
+
+    getOrg()
+
+    let currentMarker = null;
+
+    // 검색 이벤트 리스너 수정
+    if (orgSearchInput) {
+        orgSearchInput.addEventListener("keyup", function() {
+            const query = this.value.trim();
+            if (query.length > 0) {
+                fetch(`/api/search-organization/?query=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const searchResults = document.getElementById("searchResults");
+                        if (searchResults) {
+                            searchResults.innerHTML = "";
+                            const results = data.results;
+
+                            if (results.length > 0) {
+                                results.forEach(org => {
+                                    const resultItem = document.createElement("div");
+                                    resultItem.className = "result-item";
+                                    resultItem.innerHTML = `
+                                        <strong>${org.name}</strong>
+                                        <div class="org-info">
+                                            <span>${org.address}</span><br/>
+                                            <span>${org.contact}</span>
+                                        </div>
+                                    `;
+
+                                    resultItem.addEventListener('click', function(e) {
+                                        e.preventDefault(); // 이벤트 본 동작 방지
+                                        e.stopPropagation(); // 이벤트 버블링 방지
+                                        selectOrganization(org);
+                                    });
+
+                                    searchResults.appendChild(resultItem);
+                                });
+                                searchResults.style.display = "block";
+                            } else {
+                                searchResults.style.display = "none";
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error fetching organization data:', error));
+            } else {
+                const searchResults = document.getElementById("searchResults");
+                if (searchResults) {
+                    searchResults.style.display = "none";
+                }
+            }
+        });
+    }
+
+    // 기관 선택 함수 수정
+    function selectOrganization(org) {
+        // 이전 마커가 있다면 제거
+        if (currentMarker) {
+            currentMarker.setMap(null);
+        }
+
+        const selectedOrgCard = document.getElementById("selectedOrgCard");
+        if (selectedOrgCard) {
+            selectedOrgCard.style.display = "block";
+            document.getElementById("orgName").textContent = org.name;
+            document.getElementById("orgAddress").textContent = `주소: ${org.address}`;
+            document.getElementById("orgContact").textContent = `연락처: ${org.contact}`;
+        }
+
+        if (map && org.y && org.x) {
+            const position = new kakao.maps.LatLng(org.y, org.x);
+            map.setCenter(position);
+
+            // 새로운 마커 생성
+            currentMarker = new kakao.maps.Marker({
+                position: position,
+                map: map
+            });
+
+            // 마커 클릭 이벤트 추가
+            kakao.maps.event.addListener(currentMarker, 'click', function(e) {
+                e.preventDefault();
+                if (selectedOrgCard) {
+                    selectedOrgCard.style.display = "block";
+                }
+            });
+        }
+
+        // 등록 버튼에 대한 이벤트 리스너 제거 후 재설정
+        const confirmOrgButton = document.getElementById("confirmOrgButton");
+        if (confirmOrgButton) {
+            // 기존 이벤트 리스너 제거
+            confirmOrgButton.replaceWith(confirmOrgButton.cloneNode(true));
+
+            // 새로운 이벤트 리스너 추가
+            document.getElementById("confirmOrgButton").addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                fetch('/api/register-organization/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        org_name: org.name,
+                        address: org.address,
+                        contact_number: org.contact
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.message.includes('성공')) {
+                        updateCurrentOrgInfo(org);
+                        getOrg();
+                        setTimeout(() => {
+                            window.location.href = "{% url 'main' %}";
+                        }, 3000);
+                        showSuccessMessage('기관이 성공적으로 등록되었습니다.');
+                    } else {
+                        showErrorMessage(data.message || '기관 등록에 실패했습니다.');
+                    }
+                })
+                .catch(error => {
+                    showErrorMessage('기관 등록 중 오류가 발생했습니다.');
+                    console.error('Error:', error);
+                });
+            });
+        }
+    }
+
+    // 성공 메시지 표시 함수
+    function showSuccessMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert-success';
+        alertDiv.textContent = message;
+        document.querySelector('.register-container').prepend(alertDiv);
+
+        // 3초 후 메시지 제거
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+
+    // 에러 메시지 표시 함수
+    function showErrorMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert-error';
+        alertDiv.textContent = message;
+        document.querySelector('.register-container').prepend(alertDiv);
+
+        // 3초 후 메시지 제거
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+
+    // 현재 등록된 기관 정보 업데이트 함수
+    function updateCurrentOrgInfo(org) {
+        const currentOrgInfo = document.getElementById("currentOrgInfo");
+        if (currentOrgInfo) {
+            document.getElementById("selectedOrgName").textContent = `기관명: ${org.name}`;
+            document.getElementById("selectedOrgAddress").textContent = `주소: ${org.address}`;
+            document.getElementById("selectedOrgContact").textContent = `연락처: ${org.contact}`;
+            currentOrgInfo.style.display = "block";
+        }
+    }
+
+    // 지도 클릭 이벤트 수정
+    if (map) {
+        kakao.maps.event.addListener(map, 'click', function(e) {
+            const selectedOrgCard = document.getElementById("selectedOrgCard");
+            if (selectedOrgCard && !selectedOrgCard.contains(e.target)) {
+                selectedOrgCard.style.display = "none";
+            }
+        });
+    }
+
+    // 선택 카드 외부 클릭 시 닫기
+    document.addEventListener('click', function(e) {
+        const selectedOrgCard = document.getElementById("selectedOrgCard");
+        if (selectedOrgCard && !selectedOrgCard.contains(e.target)) {
+            const searchResults = document.getElementById("searchResults");
+            if (!searchResults || !searchResults.contains(e.target)) {
+                selectedOrgCard.style.display = "none";
+            }
+        }
+    });
+
+    // 트랜지션 링크에 이벤트 리스너 추가
+    document.querySelectorAll('.transition-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const href = this.getAttribute('href');
+            const wrapper = document.querySelector('.page-transition-wrapper');
+
+            // 페이지 나가기 애니메이션
+            wrapper.classList.add('page-leaving');
+
+            // 애니메이션 완료 후 페이지 이동
+            wrapper.addEventListener('animationend', function() {
+                window.location.href = href;
+            }, { once: true });
+        });
+    });
+});
+</script>
+{%endblock%}

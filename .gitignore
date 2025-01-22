@@ -139,6 +139,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+/monitoring/.env
 
 # Spyder project settings
 .spyderproject
@@ -174,3 +175,7 @@ cython_debug/
 # End of https://www.toptal.com/developers/gitignore/api/django
 
 test_samples/*
+*migrations/
+.idea/
+logs/*
+**/.DS_Store

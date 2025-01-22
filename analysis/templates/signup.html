@@ -1,0 +1,64 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>회원 가입</title>
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="stylesheet" href="{% static 'styles-auth.css' %}" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}" >
+</head>
+<body>
+    <div class="image-container"></div> <!-- Image Container Div -->
+
+    <div class="login-container">
+        <form method="post" style="background: rgba(255, 255, 255, 0.7);">
+            {% csrf_token %}
+            <div>
+                <label for="username">ID</label>
+                <input type="text" name="username" id="username" required />
+                {% if form.username.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.username.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="password1">비밀번호</label>
+                <input type="password" name="password1" id="password1" required />
+                {% if form.password1.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.password1.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="password2">비밀번호 확인</label>
+                <input type="password" name="password2" id="password2" required />
+                {% if form.password2.errors %}
+                <p style="color: red; text-align: left">
+                    {{ form.password2.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+            <button type="submit">회원 가입</button>
+        </form>
+
+        {% if form.non_field_errors %}
+        <div>
+            {% for error in form.non_field_errors %}
+            <p style="color: red; text-align: center">
+                {{ error }}
+            </p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="info-text">
+            <p style="color: white; font-size: large;">이미 계정이 있으신가요? <a href="{% url 'login' %}" class="button" style="color: lime;">로그인</a></p>
+        </div>
+    </div>
+</body>
+</html>
