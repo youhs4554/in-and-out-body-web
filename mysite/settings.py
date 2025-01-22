@@ -161,6 +161,8 @@ if ENVIRONMENT == 'dev':
         'PORT': os.environ['DEV_POSTGRES_PORT'],
         'TEST': {
             'NAME': 'test_' + os.environ['DEV_POSTGRES_DB_NAME'],
+            'MIGRATE': True,
+            'DEPENDENCIES': [],
             },
         }
     }
@@ -175,6 +177,8 @@ else:
             'PORT': os.environ['POSTGRES_PORT'],
             'TEST': {
                 'NAME': 'test_' + os.environ['POSTGRES_DB_NAME'],
+                'MIGRATE': True,
+                'DEPENDENCIES': [],
             },
         }
     }

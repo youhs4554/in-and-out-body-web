@@ -49,7 +49,7 @@ jobs:
 
       - name: DB migration
         run: |
-          python manage.py makemigrations auth
+          rm -rf analysis/migrations
           python manage.py makemigrations analysis
           python manage.py migrate
 
