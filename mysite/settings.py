@@ -14,7 +14,25 @@ import os
 from pathlib import Path
 
 import dotenv
-dotenv.load_dotenv()
+dotenv.load_dotenv(override=True)
+
+
+"""
+prod : 운영 환경
+dev : 개발 환경
+"""
+
+ENVIRONMENT = os.getenv('ENVIRONMENT') # 운영 환경
+
+print(f'운영환경 : {ENVIRONMENT} 으로 시작됨')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+if ENVIRONMENT == 'dev':
+    DEBUG = True
+else:
+    DEBUG = False
+
+
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,8 +44,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-9wy2fexy%wsoo1s7gywnx4poto(=$vl#odi+5v@24_21qc)r&h'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+
 
 ALLOWED_HOSTS = ['*']
 
@@ -132,19 +149,35 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
+
+if ENVIRONMENT == 'dev':
+    DATABASES = {
     'default': {
         'ENGINE': 'django_prometheus.db.backends.postgresql',
-        'NAME': os.environ['POSTGRES_DB_NAME'],
-        'USER': os.environ['POSTGRES_USER'],
-        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
-        'HOST': os.environ['POSTGRES_HOST'],
-        'PORT': os.environ['POSTGRES_PORT'],
+        'NAME': os.environ['DEV_POSTGRES_DB_NAME'],
+        'USER': os.environ['DEV_POSTGRES_USER'],
+        'PASSWORD': os.environ['DEV_POSTGRES_PASSWORD'],
+        'HOST': os.environ['DEV_POSTGRES_HOST'],
+        'PORT': os.environ['DEV_POSTGRES_PORT'],
         'TEST': {
-            'NAME': 'test_' + os.environ['POSTGRES_DB_NAME'],
-        },
+            'NAME': 'test_' + os.environ['DEV_POSTGRES_DB_NAME'],
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_prometheus.db.backends.postgresql',
+            'NAME': os.environ['POSTGRES_DB_NAME'],
+            'USER': os.environ['POSTGRES_USER'],
+            'PASSWORD': os.environ['POSTGRES_PASSWORD'],
+            'HOST': os.environ['POSTGRES_HOST'],
+            'PORT': os.environ['POSTGRES_PORT'],
+            'TEST': {
+                'NAME': 'test_' + os.environ['POSTGRES_DB_NAME'],
+            },
+        }
+    }
 
 # AWS S3 Settings
 AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
@@ -194,6 +227,11 @@ USE_TZ = False
 
 STATIC_URL = '/static/'
 
+if DEBUG:
+    STATICFILES_DIRS = [os.path.join(f'{BASE_DIR}/analysis', "static")]
+else:
+    STATIC_ROOT = os.path.join(f'{BASE_DIR}/analysis', 'static')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -205,7 +243,6 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
-
 ### django-apscheduler settings
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
 
@@ -214,3 +251,31 @@ SCHEDULER_DEFAULT = True
 
 # Prometheus Exporter 설정
 PROMETHEUS_EXPORT_MIGRATIONS = False  # 기본 설정 유지
+
+
+# 부정접속 로깅 설정
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s, %(message)s',  # 시간과 메시지 포맷
+            'datefmt': '%Y-%m-%d %H:%M:%S',  # 날짜 형식
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(f'{BASE_DIR}/logs', 'bad_access.log'),  # BASE_DIR에 bad_access.log 파일 경로
+            'formatter': 'verbose',  # 포맷터 적용
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}
