@@ -5,30 +5,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}My App{% endblock %}</title>
+    <title>웰니스 바디 스캐너</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}">
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}" >
     <link href="{% static 'fontawesomefree/css/fontawesome.css' %}" rel="stylesheet" type="text/css">
     <link href="{% static 'fontawesomefree/css/brands.css' %}" rel="stylesheet" type="text/css">
     <link href="{% static 'fontawesomefree/css/solid.css' %}" rel="stylesheet" type="text/css">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-2RNGQ9YFFS');
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2>In and Out Body</h2>
+            <h2>웰니스 바디 스캐너</h2>
             <ul>
-                <li><a href="{% url 'upload_file' %}"><i class="fas fa-upload menu-icon"></i>&nbsp 데이터 업로드</a></li>
-                <li><a href="{% url 'report' %}"><i class="fas fa-file-alt menu-icon"></i>&nbsp 검사 결과 조회</a></li>
+                <li><a href="{% url 'main' %}"><i class="fas fa-home menu-icon"></i>&nbsp 홈</a></li>
+                <li><a href="{% url 'member_register' %}"><i class="fas fa-user-plus menu-icon"></i>&nbsp 사용자 정보 등록</a></li>
+                <li><a href="{% url 'report' %}"><i class="fas fa-chart-bar menu-icon"></i>&nbsp 검사 결과 조회</a></li>
                 <li><a href="{% url 'policy' %}"><i class="fas fa-shield-alt menu-icon"></i>&nbsp 개인정보 처리 방침</a></li>
-            </ul>
-            <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="logout-button">로그아웃</button>
-            </form>
+                <li><a href="#" onclick="openPasswordChangeWindow()"><i class="fas fa-key menu-icon"></i>&nbsp 비밀번호 변경</a></li>
+            </ul>            
+            <div class="user-info">
+                {% if user.is_authenticated %}
+                    <p style="font-size: large;">
+                        <i class="fas fa-user menu-icon fa-lg"></i>&nbsp 안녕하세요, {{ user.username }}님!
+                    </p>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-button">로그아웃</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}">로그인</a>
+                {% endif %}
+            </div>
         </div>
         <div class="content">
             {% block content %}
             {% endblock %}
         </div>
     </div>
+
+    <script>
+        function openPasswordChangeWindow() {
+            window.open("{% url 'password_change' %}", "PasswordChangeWindow", "width=600,height=600");
+        }
+    </script>
 </body>
 </html>

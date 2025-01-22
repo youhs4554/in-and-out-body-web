@@ -9,8 +9,31 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+from datetime import timedelta
+import os
 from pathlib import Path
+
+import dotenv
+dotenv.load_dotenv(override=True)
+
+
+"""
+prod : 운영 환경
+dev : 개발 환경
+"""
+
+ENVIRONMENT = os.getenv('ENVIRONMENT') # 운영 환경
+
+print(f'운영환경 : {ENVIRONMENT} 으로 시작됨')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+if ENVIRONMENT == 'dev':
+    DEBUG = True
+else:
+    DEBUG = False
+
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,10 +44,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-9wy2fexy%wsoo1s7gywnx4poto(=$vl#odi+5v@24_21qc)r&h'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -38,9 +60,61 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'analysis',
     'fontawesomefree',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'drf_yasg',
+    'django_prometheus',
+    'django_apscheduler',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+EMAIL_HOST = os.environ['EMAIL_HOST']
+EMAIL_USER = os.environ['EMAIL_USER']
+EMAIL_PASSWORD = os.environ['EMAIL_PASSWORD']
+
+# 추가적인 JWT_AUTH 설정
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=5000),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
+
+
+
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -48,6 +122,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
 ROOT_URLCONF = 'mysite.urls'
@@ -74,12 +149,46 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
+
+if ENVIRONMENT == 'dev':
+    DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django_prometheus.db.backends.postgresql',
+        'NAME': os.environ['DEV_POSTGRES_DB_NAME'],
+        'USER': os.environ['DEV_POSTGRES_USER'],
+        'PASSWORD': os.environ['DEV_POSTGRES_PASSWORD'],
+        'HOST': os.environ['DEV_POSTGRES_HOST'],
+        'PORT': os.environ['DEV_POSTGRES_PORT'],
+        'TEST': {
+            'NAME': 'test_' + os.environ['DEV_POSTGRES_DB_NAME'],
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_prometheus.db.backends.postgresql',
+            'NAME': os.environ['POSTGRES_DB_NAME'],
+            'USER': os.environ['POSTGRES_USER'],
+            'PASSWORD': os.environ['POSTGRES_PASSWORD'],
+            'HOST': os.environ['POSTGRES_HOST'],
+            'PORT': os.environ['POSTGRES_PORT'],
+            'TEST': {
+                'NAME': 'test_' + os.environ['POSTGRES_DB_NAME'],
+            },
+        }
+    }
+
+# AWS S3 Settings
+AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+AWS_STORAGE_BUCKET_NAME = os.environ['AWS_STORAGE_BUCKET_NAME']
+AWS_S3_REGION_NAME = os.environ['AWS_S3_REGION_NAME']
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+AWS_PRESIGNED_EXPIRATION = 3600 # 단위: 초
+
+# boto3와 django-storages를 사용할 수 있도록 설정
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 
 # Password validation
@@ -106,11 +215,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Seoul'  # Set the global timezone to Korean Standard Time
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
@@ -118,7 +227,55 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+if DEBUG:
+    STATICFILES_DIRS = [os.path.join(f'{BASE_DIR}/analysis', "static")]
+else:
+    STATIC_ROOT = os.path.join(f'{BASE_DIR}/analysis', 'static')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'analysis.UserInfo'	# [app].[모델명]
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'login'
+
+### django-apscheduler settings
+APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
+
+# 자동으로 스케쥴러 실행
+SCHEDULER_DEFAULT = True
+
+# Prometheus Exporter 설정
+PROMETHEUS_EXPORT_MIGRATIONS = False  # 기본 설정 유지
+
+
+# 부정접속 로깅 설정
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s, %(message)s',  # 시간과 메시지 포맷
+            'datefmt': '%Y-%m-%d %H:%M:%S',  # 날짜 형식
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(f'{BASE_DIR}/logs', 'bad_access.log'),  # BASE_DIR에 bad_access.log 파일 경로
+            'formatter': 'verbose',  # 포맷터 적용
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}

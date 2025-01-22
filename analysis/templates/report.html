@@ -4,55 +4,484 @@
 
 {% block content %}
 <h2>검사결과를 확인해주세요</h2>
-<form method="post">
-    {% csrf_token %}
-    <label for="grade">그룹 선택</label>
-    <select name="grade" id="grade">
-        <option value="">-- 그룹 선택 --</option>
-        {% for grade in grades %}
-            <option value="{{ grade }}" {% if grade == selected_grade %}selected{% endif %}>{{ grade }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" class="button">조회</button>
-</form>
+<div class="form-div">
+    <form id="dataForm" method="post">
+        {% csrf_token %}
+        {% if request.user.user_type == 'S' %}
+        <div style="display: inline-block">       
+                <label for="year">연도 선택</label>
+                <select name="year" id="year">
+                    <option value="">-- 연도 선택 --</option>
+                    {% for year in years %}
+                        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+        </select>
+    </div>
+    {% endif %}
 
-{% if users %}
-    <h3>Analysis Data for Grade: {{ selected_grade }}</h3>
+            <div style="display: inline-block;">
+                <label for="group">그룹 선택</label>
+                <select name="group" id="group">
+                    <option value="">-- 그룹 선택 --</option>
+                    {% for group in groups %}
+                        <option value="{{ group }}" {% if group == selected_group %}selected{% endif %}>{{ group }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="button">조회</button>
+        </form>
+</div>
+
+<!-- hr -->
+ <hr style="border-width:1px 0 0 0; border-color:#fff;"/>
+
+<!-- Spinner Container: Initially Hidden -->
+<div id="spinnerContainer" class="spinner-container" style="display: none;">
+    <div class="spinner"></div>
+    <p>결과를 불러오는 중입니다...</p>
+</div>
+
+<!-- 에러 메시지 표시 -->
+{% if error_message %}
+    <p style="color:red;">{{ error_message }}</p>
+{% endif %}
+
+{% if is_registered == False %}
+    <p style="color:red;">등록된 사용자 정보가 없습니다. 사용자 정보 등록을 먼저 진행해주세요 😅</p>
+{% endif %}
+
+{% if user_results %}
+<div style="display: flex; align-items: center; gap: 10px; margin-top:10px;" id="report-header">
+    <h3 class="group_title" style="margin: 0;">
+        {% if request.user.user_type == 'S' %}
+            {{ selected_year }}년
+        {% endif %}
+        {{ selected_group }}의 분석 현황
+    </h3>
+    <button id="report_download" style="background-color: #007bff; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px;">
+        <a href="{% url 'report_download' %}?year={{ selected_year }}&group={{ selected_group }}" style="color: white; text-decoration: none; padding:2px 0px 2px 0px">엑셀 다운로드</a>
+    </button>
+</div>
     <div class="table-container">
+        <!-- 분석 현황 카드 추가 -->
+        <div class="analysis-status-cards">
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="card-content">
+                    <h4>전체 인원</h4>
+                    <p class="card-value">{{ total_users }}명</p>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <div class="card-content">
+                    <h4>검사 완료</h4>
+                    <p class="card-value">{{ valid_count }}명</p>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="card-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="card-content">
+                    <h4>검사율</h4>
+                    <p class="card-value">{{ progress_percentage|floatformat:1 }}%</p>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Display progress -->
+         <div class="progress-container">
+            <div class="progress-info">
+                <p class="progress_percentage" style="font-weight: 700;">검사율: {{ progress_percentage|floatformat:1 }}%</p>
+                {% comment %} <span class="progress-count">{{ valid_count }}명 / {{ total_users }}명</span> {% endcomment %}
+            </div>
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ progress_percentage|floatformat:1 }}%;">
+                    <div class="progress-glow"></div>
+                </div>
+            </div>
+        </div>
+
         <table>
             <thead>
                 <tr>
-                    <th>School</th>
-                    <th>Class</th>
-                    <th>Number</th>
-                    <th>Name</th>
-                    <th>Phone Number</th>
-                    <th>Speed</th>
-                    <th>Stride Length</th>
-                    <th>Cadence</th>
-                    <th>Turtle Neck</th>
-                    <th>Shoulder Tilt</th>
+                    {% if request.user.user_type == 'S' %}
+                        <th>학년</th>
+                        <th>반</th>
+                        <th>번호</th>
+                    {% else %}
+                        <th>부서명</th>
+                    {% endif %}
+                    <th>이름</th>
+                    <th>체형 분석 결과</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for user in users %}
-                <tr>
-                    <td>{{ user.school }}</td>
-                    <td>{{ user.class_name }}</td>
-                    <td>{{ user.student_number }}</td>
-                    <td>{{ user.name }}</td>
-                    <td>{{ user.phone_number }}</td>
-                    <td>{{ user.gaitanalysis.speed|default:"N/A" }}</td>
-                    <td>{{ user.gaitanalysis.stride_length|default:"N/A" }}</td>
-                    <td>{{ user.gaitanalysis.cadence|default:"N/A" }}</td>
-                    <td>{{ user.bodytypeanalysis.turtle_neck|default:"N/A" }}</td>
-                    <td>{{ user.bodytypeanalysis.shoulder_tilt|default:"N/A" }}</td>
+            <tbody id="userResultsTableBody">
+                {% for result in user_results %}
+                <tr data-id="{{ result.user.id }}" data-valid="{{ result.analysis_valid }}">
+                    {% if request.user.user_type == 'S' %}
+                        <td>{{ result.user.student_grade }}</td>
+                        <td>{{ result.user.student_class }}</td>
+                        <td>{{ result.user.student_number }}</td>
+                    {% else %}
+                        <td>{{ result.user.department }}</td>
+                    {% endif %}
+                    <td>{{ result.user.student_name }}</td>
+                    <td>
+                        {% if result.analysis_valid %}
+                            {% if result.created_dt %}
+                            <a href="/report/{{ result.user.id }}/?selected_date={{ result.created_dt }}" class="icon-button success" aria-label="View Report">
+                                    <i class="fa-solid fa-check"></i>
+                                </a> 
+                            {% else %}
+                                <a href="{% url 'report_detail' result.user.id %}" class="icon-button success" aria-label="View Report">
+                                    <i class="fa-solid fa-check"></i>
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <a href="{% url 'no_result' %}" class="icon-button error" aria-label="No Result">
+                                <i class="fa-solid fa-times"></i>
+                            </a>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% if user_results|length > 10 %}
+        <div class="pagination-container">
+            <button class="pagination-button" id="prevPage">이전</button>
+            <button class="pagination-button" id="nextPage">다음</button>
+        </div>
+        {% endif %}
     </div>
-{% else %}
-    <p>No data available for the selected grade.</p>
 {% endif %}
+
+
+
+<!-- Include JavaScript for Pagination and Fetch -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let groupSelect = document.getElementById("group");
+        let form = document.getElementById("dataForm");
+        const spinnerContainer = document.getElementById("spinnerContainer");
+        let userResultsTableBody = document.getElementById('userResultsTableBody');
+        let yearGroupMap = JSON.parse('{{ year_group_map|escapejs|safe }}'); 
+        let userType = '{{ request.user.user_type }}';   
+        let yearSelect; 
+
+        if (userType == 'S') {
+            yearSelect = document.getElementById("year");
+        }
+        
+        let rows = [];
+        let currentPage = 1;
+        let rowsPerPage = 10;
+        let totalPages = 0;
+        let allRows = []; // 추가
+
+        // 연도 선택에 따라 그룹 옵션 업데이트
+        function updateGroupOptions() {
+            let groups;
+            if (userType == 'S') {
+                const selectedYear = yearSelect.value;
+                groups = yearGroupMap[selectedYear] || [];
+
+                groupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+            
+                groups.forEach(group => {
+                    // 만약 group에 None 이라는 텍스트가 포함 있으면 제외
+                    if (group.includes('None')) {
+                        return;
+                    }
+                    const option = document.createElement('option');
+                    option.value = group;
+                    option.textContent = group;
+                    groupSelect.appendChild(option);
+            });
+            } else {
+                return;
+            }
+            
+        }
+    
+        /** 테이블과 페이지네이션 초기화 함수 */
+        function initializeTableAndPagination() {
+            const userResultsTableBody = document.getElementById('userResultsTableBody');
+            if (!userResultsTableBody) return;  // 테이블이 없으면 함수 종료
+
+            allRows = Array.from(userResultsTableBody.querySelectorAll('tr')); // 전체 행 저장
+            if (allRows.length === 0) return;  // 행이 없으면 함수 종료
+
+            rows = [...allRows]; // 현재 표시할 행
+            totalPages = Math.ceil(rows.length / rowsPerPage);
+            currentPage = 1;
+            displayTable(currentPage);
+        }
+    
+
+        /** 진행률 및 HTML 변수들 업데이트 함수 */
+        function updateProgress(doc) {
+            // 상단 선택된 그룹명 변경
+            const groupTitle = document.querySelector('.group_title');
+            const newGroupTitle = doc.querySelector('.group_title');
+            if (groupTitle && newGroupTitle) {
+                groupTitle.textContent = newGroupTitle.textContent;
+            }
+        
+            // 분석 현황 카드 값 업데이트
+            const statusCards = document.querySelectorAll('.card-value');
+            const newStatusCards = doc.querySelectorAll('.card-value');
+            if (statusCards && newStatusCards) {
+                statusCards.forEach((card, index) => {
+                    if (newStatusCards[index]) {
+                        card.textContent = newStatusCards[index].textContent;
+                    }
+                });
+            }
+        
+            // 진행률 텍스트 업데이트
+            const progressText = document.querySelector('.progress_percentage');
+            const newProgressText = doc.querySelector('.progress_percentage');
+            if (progressText && newProgressText) {
+                progressText.textContent = newProgressText.textContent;
+            }
+        
+            // 진행률 카운트 업데이트
+            const progressCount = document.querySelector('.progress-count');
+            const newProgressCount = doc.querySelector('.progress-count');
+            if (progressCount && newProgressCount) {
+                progressCount.textContent = newProgressCount.textContent;
+            }
+        
+            // 프로그레스 바 업데이트
+            const progressBar = document.querySelector('.progress-bar .progress');
+            const newProgressBar = doc.querySelector('.progress-bar .progress');
+            if (progressBar && newProgressBar) {
+                progressBar.style.width = newProgressBar.style.width;
+            }
+
+            const reportHeader = document.querySelector('#report-header');
+            const newReportHeader = doc.querySelector('#report-header');
+            if (reportHeader && newReportHeader) {
+                reportHeader.innerHTML = newReportHeader.innerHTML;
+            } else if (!reportHeader && newReportHeader) {
+                // report-header가 없는 경우 새로 추가
+                const formDiv = document.querySelector('.form-div');
+                if (formDiv) {
+                    formDiv.insertAdjacentHTML('afterend', newReportHeader.outerHTML);
+                }
+            }
+
+        }
+    
+        function updatePaginationButtons() {
+            const prevButton = document.getElementById("prevPage");
+            const nextButton = document.getElementById("nextPage");
+            
+            // 버튼이 존재하지 않으면 함수 종료
+            if (!prevButton || !nextButton) return;
+            
+            prevButton.style.display = currentPage > 1 ? '' : 'none';
+            nextButton.style.display = currentPage < totalPages ? '' : 'none';
+        }
+    
+        function displayTable(page) {
+            if (!rows || rows.length === 0) return;  // rows가 없으면 함수 종료
+        
+            const startIndex = (page - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
+            
+            rows.forEach((row, index) => {
+                row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+            });
+        
+            // 페이지네이션 버튼 업데이트는 rows가 10개 이상일 때만 실행
+            if (rows.length > 10) {
+                updatePaginationButtons();
+            }
+        }
+        
+        
+        // 페이지네이션 버튼 이벤트 리스너
+        const prevButton = document.getElementById("prevPage");
+        const nextButton = document.getElementById("nextPage");
+        
+        if (prevButton && nextButton) {  // 버튼이 존재할 때만 이벤트 리스너 추가
+            prevButton.addEventListener("click", function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayTable(currentPage);
+                }
+            });
+        
+            nextButton.addEventListener("click", function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayTable(currentPage);
+                }
+            });
+        }
+
+        function attachPaginationListeners() {
+            const prevButton = document.getElementById("prevPage");
+            const nextButton = document.getElementById("nextPage");
+            
+            if (prevButton && nextButton) {
+                // 기존 이벤트 리스너 제거
+                prevButton.replaceWith(prevButton.cloneNode(true));
+                nextButton.replaceWith(nextButton.cloneNode(true));
+                
+                // 새로운 참조 가져오기
+                const newPrevButton = document.getElementById("prevPage");
+                const newNextButton = document.getElementById("nextPage");
+                
+                // 새로운 이벤트 리스너 추가
+                newPrevButton.addEventListener("click", function() {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        displayTable(currentPage);
+                    }
+                });
+            
+                newNextButton.addEventListener("click", function() {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        displayTable(currentPage);
+                    }
+                });
+            }
+        }
+    
+        // 현재 연도 선택
+        const currentYear = new Date().getFullYear().toString();
+        if (userType == 'S' && !yearSelect.value) {
+            yearSelect.value = currentYear;
+        }
+        
+        // 초기 그룹 옵션 설정
+        updateGroupOptions();
+        
+        // 이전에 선택된 그룹이 있다면 설정
+        const initialSavedGroup = "{{ selected_group|default_if_none:'' }}";
+        if (initialSavedGroup && groupSelect.querySelector(`option[value="${initialSavedGroup}"]`)) {
+            groupSelect.value = initialSavedGroup;
+        }
+    
+        // 연도 선택 변경 이벤트 리스너
+        if (userType == 'S') {
+            yearSelect.addEventListener('change', function() {
+                updateGroupOptions();
+                groupSelect.value = '';
+            });
+        }
+        
+        // 폼 제출 이벤트 리스너
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (userType == 'S') {
+                if (!yearSelect.value || !groupSelect.value) {
+                    alert('연도와 그룹을 선택해주세요.');
+                    return;
+                }
+            } else {
+                if (!groupSelect.value) {
+                    alert('그룹을 선택해주세요.');
+                    return;
+                }
+            }
+            
+            spinnerContainer.style.display = 'flex';
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // HTML 파싱
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // 기존 테이블 컨테이너와 새로운 테이블 컨테이너 찾기
+                const existingContainer = document.querySelector('.table-container');
+                const newContainer = doc.querySelector('.table-container');
+                
+                if (!newContainer) {
+                    console.log('새로운 데이터를 찾을 수 없습니다.');
+                    if (existingContainer) {
+                        existingContainer.innerHTML = '<p>검색 결과가 없습니다.</p>';
+                    }
+                    return;
+                }
+        
+                // 테이블 컨테이너 업데이트
+                if (existingContainer) {
+                    // 기존 컨테이너가 있으면 내용만 업데이트
+                    existingContainer.innerHTML = newContainer.innerHTML;
+                } else {
+                    // 기존 컨테이너가 없으면 새로 추가
+                    const parentElement = document.querySelector('#user_results') || document.querySelector('.form-div').parentNode;
+                    parentElement.appendChild(newContainer.cloneNode(true));
+                }
+        
+                // 테이블 참조 업데이트
+                userResultsTableBody = document.getElementById('userResultsTableBody');
+                
+                // 진행률 정보 업데이트
+                updateProgress(doc);
+        
+                // 페이지네이션 초기화
+                if (userResultsTableBody) {
+                    const tableRows = userResultsTableBody.querySelectorAll('tr');
+                    if (tableRows.length > 0) {
+                        rows = Array.from(tableRows);
+                        totalPages = Math.ceil(rows.length / rowsPerPage);
+                        currentPage = 1;
+                        displayTable(currentPage);
+
+                        // 페이지네이션 버튼 이벤트 리스너 다시 연결
+                        attachPaginationListeners();
+                    }
+                }
+        
+                // 다운로드 버튼 업데이트
+                const downloadBtn = document.querySelector("#report_download");
+                const newDownloadBtn = doc.querySelector("#report_download");
+                if (downloadBtn && newDownloadBtn) {
+                    downloadBtn.innerHTML = newDownloadBtn.innerHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            })
+            .finally(() => {
+                // 로딩 스피너 숨기기
+                spinnerContainer.style.display = 'none';
+            });
+        });
+        
+        // 초기 테이블 설정
+        initializeTableAndPagination();
+
+    });
+
+</script>
 {% endblock %}

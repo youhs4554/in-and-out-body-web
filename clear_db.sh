@@ -1,0 +1,1 @@
+rm -rf analysis/migrations && rm -f db.sqlite3 && python manage.py makemigrations analysis && python manage.py migrate && python manage.py createsuperuser --username aicu --email admin@example.com

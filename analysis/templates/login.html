@@ -5,31 +5,48 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login</title>
+    <title>로그인</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <link rel="stylesheet" href="{% static 'styles-auth.css' %}" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/favicon.ico' %}">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2RNGQ9YFFS"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-2RNGQ9YFFS');
+    </script>
 </head>
 <body>
+    <div class="image-container"></div> <!-- Image Container Div -->
+    
     <div class="login-container">
-        <h2>Login</h2>
-
-        <form method="post">
+        <form method="post" style="background: rgba(255, 255, 255, 0.7);">
             {% csrf_token %}
             <div>
                 <label for="username">ID</label>
-                <input type="text" name="username" id="username" required />
+                <input type="text" name="username" id="username"/>
             </div>
             <div>
                 <label for="password">비밀번호</label>
-                <input type="password" name="password" id="password" required />
+                <input type="password" name="password" id="password"/>
             </div>
             <button type="submit">Login</button>
         </form>
-
+    
+        <!-- Show error message if login fails -->
         {% if form.errors %}
-        <p style="color: red; text-align: center">
-            Your username and password didn't match. Please try again.
+        <p style="color: yellow; text-align: left">
+            ID 또는 비밀번호가 일치하지 않습니다. 다시 시도해주세요!
         </p>
         {% endif %}
+    
+        <div class="info-text">
+            <p style="color: white; font-size: large;">계정이 없으신가요? <a href="{% url 'signup' %}" class="button" style="color: lime;">회원 가입</a></p>
+            <p style="color: white; font-size: large;">비밀번호를 잊으셨나요? <a href="{% url 'password_reset' %}" class="button" style="color: lime;">비밀번호 재설정</a></p>
+        </div>
     </div>
+
 </body>
 </html>
